@@ -10,3 +10,7 @@ coverage/
 .vscode/
 *.suo
 *.ntvs* 
+*.njsproj
+*.sln
+*.sw?
+.env.example
