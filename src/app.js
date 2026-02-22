@@ -7,6 +7,12 @@ const { errorHandler } = require("./middleware/errorHandler");
 const menuRoutes = require("./routes/menuRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const adminAuthRoutes = require("./routes/adminAuthRoutes");
+const adminOrdersRoutes = require("./routes/adminOrdersRoutes");
+const adminCategoryRoutes = require("./routes/adminCategoryRoutes");
+const adminItemRoutes = require("./routes/adminItemRoutes");
+const adminOptionsRoutes = require("./routes/adminOptionsRoutes");
+const adminReportsRoutes = require("./routes/adminReportsRoutes");
+
 
 const app = express();
 
@@ -22,6 +28,11 @@ app.get("/", (req, res) => {
 app.use("/api/orders", orderRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
+app.use("/api/admin/orders", adminOrdersRoutes);
+app.use("/api/admin/categories", adminCategoryRoutes);
+app.use("/api/admin/items", adminItemRoutes);
+app.use("/api/admin", adminOptionsRoutes);
+app.use("/api/admin/reports", adminReportsRoutes);
 
 
 // 404 handler
