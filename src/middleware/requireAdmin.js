@@ -1,4 +1,4 @@
-const prisma = require("../db/prisma");
+const { prisma } = require("../db/prisma");
 const { verifyToken } = require("../utils/jwt");
 
 async function requireAdmin(req, res, next) {

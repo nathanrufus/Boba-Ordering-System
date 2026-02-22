@@ -1,10 +1,9 @@
-const prisma = require("../db/prisma");
+const { prisma } = require("../db/prisma");
 const bcrypt = require("bcryptjs");
 const { signAdminToken } = require("../utils/jwt");
 
 // const bcrypt = require("bcryptjs");
-// const prisma = require("../db/prisma");
-
+// const { prisma } = require("../db/prisma");
 // PATCH /api/admin/auth/password
 async function changePassword(req, res, next) {
   try {
