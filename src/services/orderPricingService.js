@@ -1,5 +1,4 @@
-const prisma = require("../db/prisma");
-const { Prisma } = require("@prisma/client");
+const { prisma } = require("../db/prisma");const { Prisma } = require("@prisma/client");
 const { buildWhatsAppTextAndLink } = require("./whatsappService");
 
 function toDecimal(n) {
