@@ -1,0 +1,189 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+// =======================
+// ENUMS
+// =======================
+enum SelectionType {
+  single
+  multi
+}
+
+enum FulfillmentType {
+  pickup
+  delivery
+}
+
+enum OrderStatus {
+  NEW
+  PREPARING
+  DONE
+  CANCELLED
+}
+
+enum AdminRole {
+  OWNER
+  STAFF
+}
+
+// =======================
+// MENU
+// =======================
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  items     MenuItem[]
+}
+
+model MenuItem {
+  id          Int       @id @default(autoincrement())
+  categoryId  Int
+  name        String
+  description String
+  basePrice   Decimal   @db.Decimal(10, 2)
+  imageUrl    String?   @db.VarChar(2048)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  itemGroups  MenuItemOptionGroup[]
+
+  orderItems  OrderItem[]
+
+  @@index([categoryId])
+}
+
+model OptionGroup {
+  id            Int        @id @default(autoincrement())
+  name          String     @unique
+  selectionType SelectionType
+  isRequired    Boolean    @default(false)
+  sortOrder     Int        @default(0)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  options       Option[]
+  itemGroups    MenuItemOptionGroup[]
+}
+
+model Option {
+  id            Int        @id @default(autoincrement())
+  optionGroupId Int
+  label         String
+  priceDelta    Decimal    @default(0) @db.Decimal(10, 2)
+  sortOrder     Int        @default(0)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  optionGroup   OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  orderItemOptions OrderItemOption[]
+
+  @@index([optionGroupId])
+  @@unique([optionGroupId, label])
+}
+
+// Mapping table: which option groups apply to which menu items
+model MenuItemOptionGroup {
+  menuItemId    Int
+  optionGroupId Int
+
+  menuItem      MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  optionGroup   OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([menuItemId, optionGroupId])
+  @@index([optionGroupId])
+}
+
+// =======================
+// ORDERS
+// =======================
+model Order {
+  id                 Int            @id @default(autoincrement())
+  orderNumber         String         @unique @db.VarChar(32)
+  createdAt          DateTime        @default(now())
+
+  customerName       String
+  customerPhone      String          @db.VarChar(32)
+
+  fulfillmentType    FulfillmentType
+  deliveryAddress    String?         @db.VarChar(500)
+
+  status             OrderStatus     @default(NEW)
+
+  subtotal           Decimal         @db.Decimal(10, 2)
+  customerNote       String?         @db.VarChar(500)
+
+  whatsappMessageText String         @db.Text
+  whatsappDeeplink    String?        @db.Text
+
+  items              OrderItem[]
+}
+
+model OrderItem {
+  id                Int       @id @default(autoincrement())
+  orderId           Int
+  menuItemId        Int?      // nullable if menu item later removed
+
+  itemNameSnapshot  String
+  unitPriceSnapshot Decimal   @db.Decimal(10, 2)
+  quantity          Int
+  lineTotal         Decimal   @db.Decimal(10, 2)
+
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  menuItem          MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  options           OrderItemOption[]
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model OrderItemOption {
+  id                      Int      @id @default(autoincrement())
+  orderItemId             Int
+  optionId                Int?     // nullable if option later removed
+
+  optionGroupNameSnapshot String
+  optionLabelSnapshot     String
+  optionPriceDeltaSnapshot Decimal @db.Decimal(10, 2)
+
+  orderItem               OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  option                  Option?   @relation(fields: [optionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([orderItemId])
+  @@index([optionId])
+}
+
+// =======================
+// ADMIN AUTH
+// =======================
+model AdminUser {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(191)
+  passwordHash String    @db.VarChar(255)
+  role         AdminRole @default(OWNER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+}
