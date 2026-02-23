@@ -14,7 +14,7 @@ const {
 const {
   createItem,
   updateItem,
-  setItemActive,
+  setItemActive,listItems
 } = require("../controllers/adminItemController");
 
 router.use(requireAdmin);
@@ -35,6 +35,7 @@ router.post(
   },
   createItem
 );
+router.get("/", listItems);
 
 // PATCH /api/admin/items/:id
 router.patch(
