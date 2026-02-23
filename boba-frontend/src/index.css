@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* Boba pastel background inspired by your PDF */
+:root {
+  --boba-cream: #fbf4e6;  /* page 1 vibe */
+  --boba-pink:  #f7cfd2;  /* pages 2–4 vibe */
+  --boba-panel: rgba(255, 255, 255, 0.35);
+  --boba-panel-2: rgba(255, 255, 255, 0.18);
+}
+
+body {
+background: linear-gradient(180deg, #f7cfd2 0%, #fde7ea 60%, #ffffff 120%);
+}
