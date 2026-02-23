@@ -33,7 +33,18 @@ export default function CheckoutPage() {
     mutationFn: createOrder,
     onSuccess: (createdOrder) => {
       clearCart();
-      navigate("/order-confirmation", { state: { order: createdOrder } });
+      navigate("/order-confirmation", {
+        state: {
+          order: createdOrder,
+          customer: {
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim(),
+            fulfillmentType,
+            deliveryAddress: fulfillmentType === "delivery" ? deliveryAddress.trim() : null,
+            customerNote: customerNote.trim() ? customerNote.trim() : null,
+          },
+        },
+      });
     },
     onError: (err) => {
       // backend returns 400 for validations; message may vary
@@ -81,7 +92,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen text-slate-900">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="w-full px-4 sm:px-6 lg:px-10 py-4 flex items-center justify-between">
           <div>

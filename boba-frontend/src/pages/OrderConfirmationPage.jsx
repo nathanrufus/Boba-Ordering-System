@@ -1,9 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { SendOrderOnWhatsAppButton } from "../components/SendOrderOnWhatsAppButton";
 
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const order = location?.state?.order;
+  const customer = location?.state?.customer;
 
   // If user refreshes this page, state is lost.
   // For MVP, redirect to menu.
@@ -28,10 +30,10 @@ export default function OrderConfirmationPage() {
 
   const orderNumber = order.orderNumber ?? order.order_number ?? "";
   const status = order.status ?? "";
-  const items = order.items ?? order.orderItems ?? [];
+  const items = order?.summary?.items ?? [];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen text-slate-900">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="w-full px-4 sm:px-6 lg:px-10 py-4 flex items-center justify-between">
           <div>
@@ -68,6 +70,10 @@ export default function OrderConfirmationPage() {
               <p className="text-sm text-slate-600 mt-1">
                 The shop will prepare your order. Keep your order number for reference.
               </p>
+
+              <div className="mt-4">
+                <SendOrderOnWhatsAppButton order={order} customer={customer} />
+              </div>
             </div>
           </div>
 
@@ -78,17 +84,16 @@ export default function OrderConfirmationPage() {
               <div className="mt-4 space-y-3">
                 {items.map((it, idx) => (
                   <div
-                    key={it.id ?? idx}
+                    key={it.menuItemId ?? idx}
                     className="rounded-xl border border-slate-200 p-4"
                   >
                     <p className="text-base font-extrabold">
-                      {it.name ?? it.menuItemName ?? `Item #${idx + 1}`}
+                      {it.name ?? `Item #${idx + 1}`}
                     </p>
                     <p className="text-sm text-slate-600 mt-1">
                       Qty: {it.quantity ?? 1}
                     </p>
 
-                    {/* Option snapshot fields vary by backend; show safely */}
                     {it.options?.length ? (
                       <p className="text-sm text-slate-600 mt-1">
                         Options:{" "}

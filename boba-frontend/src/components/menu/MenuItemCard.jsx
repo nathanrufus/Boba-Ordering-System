@@ -1,5 +1,3 @@
-
-import placeholder from "../../assets/strawberrymilkshake_step9.webp"
 export default function MenuItemCard({ item, onSelect }) {
   const price = item?.basePrice ?? item?.base_price ?? "";
   const hasImage = !!item?.imageUrl;
@@ -21,12 +19,11 @@ export default function MenuItemCard({ item, onSelect }) {
             className="w-full h-full object-cover"
             loading="lazy"
           />
-        ) :<img
-            src={placeholder}
-            alt="Placeholder drink"
-            className="w-full h-full object-cover"
-            loading="lazy"
-        />}
+        ) : (
+          <div className="w-full h-full grid place-items-center text-slate-400 text-sm">
+            No image
+          </div>
+        )}
       </div>
 
       {/* Content */}
