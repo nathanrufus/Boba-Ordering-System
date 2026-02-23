@@ -90,5 +90,15 @@ async function setCategoryActive(req, res, next) {
     next(err);
   }
 }
+async function listCategories(req, res, next) {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+    });
+    res.json(categories);
+  } catch (e) {
+    next(e);
+  }
+}
 
-module.exports = { createCategory, updateCategory, setCategoryActive };
+module.exports = { createCategory, updateCategory, setCategoryActive, listCategories };

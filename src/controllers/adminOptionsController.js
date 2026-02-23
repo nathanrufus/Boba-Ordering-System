@@ -239,11 +239,38 @@ async function setItemOptionGroups(req, res, next) {
     next(err);
   }
 }
+async function listOptionGroups(req, res, next) {
+  try {
+    const groups = await prisma.optionGroup.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: { options: { orderBy: { sortOrder: "asc" } } }, // optional
+    });
+    res.json(groups);
+  } catch (e) {
+    next(e);
+  }
+}
 
+async function listOptions(req, res, next) {
+  try {
+    const optionGroupId = req.query.optionGroupId ? Number(req.query.optionGroupId) : undefined;
+
+    const options = await prisma.option.findMany({
+      where: optionGroupId ? { optionGroupId } : undefined,
+      orderBy: { sortOrder: "asc" },
+    });
+
+    res.json(options);
+  } catch (e) {
+    next(e);
+  }
+}
 module.exports = {
   createOptionGroup,
   updateOptionGroup,
   createOption,
   updateOption,
   setItemOptionGroups,
+  listOptionGroups,
+  listOptions
 };

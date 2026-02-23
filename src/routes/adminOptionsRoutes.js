@@ -18,12 +18,13 @@ const {
   updateOptionGroup,
   createOption,
   updateOption,
-  setItemOptionGroups,
+  setItemOptionGroups,listOptionGroups,listOptions
 } = require("../controllers/adminOptionsController");
 
 // Protect all
 router.use(requireAdmin);
-
+router.get("/option-groups", listOptionGroups);
+router.get("/options", listOptions);
 // Option Groups
 router.post("/option-groups", validate(createOptionGroupSchema), createOptionGroup);
 router.patch("/option-groups/:id", validate(updateOptionGroupSchema), updateOptionGroup);

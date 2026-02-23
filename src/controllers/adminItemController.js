@@ -223,5 +223,18 @@ async function setItemActive(req, res, next) {
     next(err);
   }
 }
+async function listItems(req, res, next) {
+  try {
+    const items = await prisma.menuItem.findMany({
+      orderBy: { id: "asc" },
+      include: {
+        category: true, // optional
+      },
+    });
+    res.json(items);
+  } catch (e) {
+    next(e);
+  }
+}
 
-module.exports = { createItem, updateItem, setItemActive };
+module.exports = { createItem, updateItem, setItemActive, listItems };

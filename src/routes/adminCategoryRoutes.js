@@ -13,7 +13,7 @@ const {
 const {
   createCategory,
   updateCategory,
-  setCategoryActive,
+  setCategoryActive,listCategories
 } = require("../controllers/adminCategoryController");
 
 // all protected
@@ -21,6 +21,7 @@ router.use(requireAdmin);
 
 // POST /api/admin/categories
 router.post("/", validate(createCategorySchema), createCategory);
+router.get("/", listCategories);
 
 // PATCH /api/admin/categories/:id
 router.patch("/:id", validate(updateCategorySchema), updateCategory);

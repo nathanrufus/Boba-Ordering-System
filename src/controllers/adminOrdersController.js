@@ -1,11 +1,10 @@
 const { prisma } = require("../db/prisma");
+
 function toISODateStart(dateStr) {
-  // dateStr: YYYY-MM-DD -> start of day UTC
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
 function toISODateEnd(dateStr) {
-  // dateStr: YYYY-MM-DD -> end of day UTC
   return new Date(`${dateStr}T23:59:59.999Z`);
 }
 
@@ -13,8 +12,12 @@ function toISODateEnd(dateStr) {
 async function listOrders(req, res, next) {
   try {
     const { status, from, to } = req.query;
-    const page = req.query.page ?? 1;
-    const limit = req.query.limit ?? 20;
+
+    const pageNum = Number(req.query.page ?? 1);
+    const limitNum = Number(req.query.limit ?? 20);
+
+    const page = Number.isFinite(pageNum) && pageNum > 0 ? pageNum : 1;
+    const limit = Number.isFinite(limitNum) && limitNum > 0 ? limitNum : 20;
 
     const where = {};
 
@@ -71,7 +74,11 @@ async function listOrders(req, res, next) {
 // GET /api/admin/orders/:id
 async function getOrderById(req, res, next) {
   try {
-    const id = req.params.id; // already transformed to number by validator
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
 
     const order = await prisma.order.findUnique({
       where: { id },
@@ -126,10 +133,13 @@ async function getOrderById(req, res, next) {
 // PATCH /api/admin/orders/:id/status
 async function updateOrderStatus(req, res, next) {
   try {
-    const id = req.params.id; // number from validator
+    const id = Number(req.params.id);
     const { status } = req.body;
 
-    // Ensure order exists
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
+
     const existing = await prisma.order.findUnique({
       where: { id },
       select: { id: true },
