@@ -10,26 +10,28 @@ export default function MenuItemCard({ item, onSelect }) {
                  hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition
                  overflow-hidden"
     >
-      {/* Image area */}
-      <div className="h-40 bg-slate-100 border-b border-slate-200">
-        {hasImage ? (
-          <img
-            src={item.imageUrl}
-            alt={item?.name || "Menu item"}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full grid place-items-center text-slate-400 text-sm">
-            No image
-          </div>
-        )}
+      {/* Image area: full image, no cropping */}
+     <div className="border-b border-slate-200 bg-white">
+        <div className="aspect-[16/7] sm:aspect-[16/8] w-full max-h-44 sm:max-h-45 flex items-start justify-center overflow-hidden">
+          {hasImage ? (
+            <img
+              src={item.imageUrl}
+              alt={item?.name || "Menu item"}
+              className="h-full w-full object-contain object-top p-2"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full grid place-items-center text-slate-400 text-sm">
+              No image
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-4 bg-slate-50">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-extrabold leading-snug text-slate-900 line-clamp-2">
+          <h3 className="text-lg font-extrabold leading-snug text-slate-900 line-clamp-2 ">
             {item?.name}
           </h3>
           <span className="shrink-0 text-base font-bold text-slate-900">
@@ -42,9 +44,7 @@ export default function MenuItemCard({ item, onSelect }) {
             {item.description}
           </p>
         ) : (
-          <p className="mt-1 text-base text-slate-400 italic">
-            No description
-          </p>
+          <p className="mt-1 text-base text-slate-400 italic">No description</p>
         )}
 
         <div className="mt-4 flex items-center justify-between">

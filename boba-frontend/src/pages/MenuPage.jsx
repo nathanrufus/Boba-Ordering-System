@@ -18,6 +18,44 @@ function SkeletonCard() {
   );
 }
 
+// Small inline icon buttons (no external libs)
+function IconButton({ href, label, children }) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={label}
+      title={label}
+      className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white
+                 text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition"
+    >
+      {children}
+    </a>
+  );
+}
+
+function PhonePill({ phone }) {
+  if (!phone) return null;
+  const clean = String(phone).replace(/\s+/g, "");
+  return (
+    <a
+      href={`tel:${clean}`}
+      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5
+                 text-xs sm:text-sm font-extrabold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition"
+      aria-label={`Call ${phone}`}
+      title={`Call ${phone}`}
+    >
+      {/* phone icon */}
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+        <path d="M6.62 10.79a15.09 15.09 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z" />
+      </svg>
+      <span className="whitespace-nowrap">{phone}</span>
+    </a>
+  );
+}
+
 export default function MenuPage() {
   const [search, setSearch] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState("all");
@@ -36,19 +74,48 @@ export default function MenuPage() {
     s.items.reduce((sum, x) => sum + (x.quantity || 0), 0)
   );
 
+  // WhatsApp + socials from env (Vite requires VITE_ prefix)
+  const waRaw = import.meta.env.VITE_STORE_WHATSAPP_NUMBER || "";
+  const waNumber = String(waRaw).replace(/[^\d]/g, "");
+  const waText = encodeURIComponent("Hi! I’d like to place an order from BOBA BROS.");
+  const waLink = waNumber ? `https://wa.me/${waNumber}?text=${waText}` : "";
+
+  const storePhone = import.meta.env.VITE_STORE_PHONE_NUMBER || "";
+  const instagramUrl = import.meta.env.VITE_STORE_INSTAGRAM_URL || "";
+  const facebookUrl = import.meta.env.VITE_STORE_FACEBOOK_URL || "";
+  const tiktokUrl = import.meta.env.VITE_STORE_TIKTOK_URL || "";
+
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["menu"],
     queryFn: getMenu,
   });
-
+    const CATEGORY_ORDER = ["Milkshakes", "Milk teas", "Fruit teas", "Sides and treats"];
+    const norm = (s) => String(s || "").trim().toLowerCase();
   const rawCategories = useMemo(() => {
-    // supports both shapes: [] or { categories: [] }
-    return Array.isArray(data) ? data : data?.categories || [];
-  }, [data]);
+      const cats = Array.isArray(data) ? data : data?.categories || [];
+
+      const sortedCats = [...cats].sort((a, b) => {
+        const ai = CATEGORY_ORDER.findIndex((x) => norm(x) === norm(a?.name));
+        const bi = CATEGORY_ORDER.findIndex((x) => norm(x) === norm(b?.name));
+
+        const aRank = ai === -1 ? 999 : ai;
+        const bRank = bi === -1 ? 999 : bi;
+
+        if (aRank !== bRank) return aRank - bRank;
+
+        // if category not in list, sort alphabetically
+        return norm(a?.name).localeCompare(norm(b?.name));
+      });
+
+      // Optional: sort items within each category alphabetically
+      return sortedCats.map((c) => ({
+        ...c,
+        items: [...(c.items || [])].sort((i1, i2) => norm(i1?.name).localeCompare(norm(i2?.name))),
+      }));
+    }, [data]);
 
   const filteredCategories = useMemo(() => {
     const q = search.trim().toLowerCase();
-
     let cats = rawCategories;
 
     // category filter
@@ -84,7 +151,6 @@ export default function MenuPage() {
   }
 
   // ---- Pagination computed across items (not categories) ----
-  // Flatten items while keeping their category for reconstruction after slicing
   const flatItems = useMemo(() => {
     const out = [];
     for (const cat of filteredCategories) {
@@ -115,21 +181,18 @@ export default function MenuPage() {
     return flatItems.slice(start, start + PAGE_SIZE);
   }, [flatItems, page]);
 
-  // Rebuild categories using only paged items
   const pagedCategories = useMemo(() => {
     if (pagedFlatItems.length === 0) return [];
 
-    const map = new Map(); // catId -> { ...cat, items: [] }
+    const map = new Map();
     for (const row of pagedFlatItems) {
       const catId = row.catId;
       if (!map.has(catId)) {
-        // Keep original category shape but only include subset of items
         map.set(catId, { ...row.cat, items: [] });
       }
       map.get(catId).items.push(row.item);
     }
 
-    // Preserve original order of categories (based on filteredCategories)
     const ordered = [];
     for (const c of filteredCategories) {
       if (map.has(c.id)) ordered.push(map.get(c.id));
@@ -172,17 +235,59 @@ export default function MenuPage() {
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="w-full px-4 sm:px-6 lg:px-10 py-2">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0">
+            <div className="w-15 h-15 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0">
               <img src={logo} alt="BOBABROS logo" className="w-full h-full object-cover" />
             </div>
 
+            {/* Title + small contact/social row */}
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight leading-tight">
-                {import.meta.env.VITE_STORE_NAME || "BOBA"}
+                {import.meta.env.VITE_STORE_NAME || "BOBA"} 
               </h1>
-              <p className="text-sm sm:text-base text-slate-600">
-                Bubble tea • Fast, ordering system
-              </p>
+
+             <div className="mt-0.5">
+                {/* <p className="text-sm sm:text-base text-slate-600">
+                  Bubble tea • Fast, ordering system
+                </p> */}
+
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <a
+                    href={`tel:${String(storePhone).replace(/\s+/g, "")}`}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5
+                              text-xs sm:text-sm font-extrabold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition"
+                    aria-label={`Call ${storePhone}`}
+                    title={`Call ${storePhone}`}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                      <path d="M6.62 10.79a15.09 15.09 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/>
+                    </svg>
+                    <span className="whitespace-nowrap">{storePhone || "+251992311111"}</span>
+                  </a>
+
+                  {/* Facebook */}
+                  <IconButton href={facebookUrl} label="Facebook">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                      <path d="M22 12a10 10 0 10-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.25c-1.23 0-1.61.76-1.61 1.54V12h2.74l-.44 2.89h-2.3v6.99A10 10 0 0022 12z"/>
+                    </svg>
+                  </IconButton>
+
+                  {/* Instagram */}
+                  <IconButton href={instagramUrl} label="Instagram">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                      <path d="M7 2h10a5 5 0 015 5v10a5 5 0 01-5 5H7a5 5 0 01-5-5V7a5 5 0 015-5zm10 2H7a3 3 0 00-3 3v10a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3z"/>
+                      <path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0 2a3 3 0 110 6 3 3 0 010-6z"/>
+                      <path d="M17.5 6.5a1 1 0 110 2 1 1 0 010-2z"/>
+                    </svg>
+                  </IconButton>
+
+                  {/* TikTok */}
+                  <IconButton href={tiktokUrl} label="TikTok">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                      <path d="M15 3c.6 3.2 2.7 5 6 5v3c-2.2 0-4.1-.7-6-2v7.2c0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8c0-3.1 2.5-5.6 5.6-5.8V14c-1.3.2-2.3 1.3-2.3 2.6 0 1.5 1.2 2.7 2.7 2.7S12 18.1 12 16.6V3h3z"/>
+                    </svg>
+                  </IconButton>
+                </div>
+              </div>
             </div>
 
             <button
@@ -247,7 +352,7 @@ export default function MenuPage() {
       </header>
 
       {/* Content */}
-      <main className="w-full px-4 sm:px-6 lg:px-6 pt-1 pb-28">       
+      <main className="w-full px-4 sm:px-6 lg:px-6 pt-1 pb-32">
         {isLoading && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -304,7 +409,6 @@ export default function MenuPage() {
                   Prev
                 </button>
 
-                {/* Page numbers hidden on very small screens */}
                 <div className="hidden sm:flex items-center gap-1">
                   {pageButtons.map((p, idx) =>
                     p === "…" ? (
@@ -327,7 +431,6 @@ export default function MenuPage() {
                   )}
                 </div>
 
-                {/* Compact indicator on small screens */}
                 <div className="sm:hidden text-sm font-bold text-slate-700 px-2">
                   {page}/{totalPages}
                 </div>
@@ -345,14 +448,39 @@ export default function MenuPage() {
         ) : null}
       </main>
 
-      {/* Floating cart button */}
-      <button
-        onClick={() => setCartOpen(true)}
-        className="fixed bottom-5 right-5 z-30 rounded-2xl bg-slate-900 text-white px-5 py-3
-                   text-base font-extrabold shadow-xl hover:bg-slate-800 active:bg-slate-900 transition"
-      >
-        Cart {cartCount ? `(${cartCount})` : ""}
-      </button>
+      {/* Floating WhatsApp + Cart (stacked so it doesn't block cards) */}
+      <div className="fixed bottom-5 right-5 z-30 flex flex-col items-end gap-3">
+        {/* WhatsApp */}
+        {waLink ? (
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Chat on WhatsApp"
+            title="Chat on WhatsApp"
+            className="rounded-2xl bg-green-600 text-white px-4 py-3 text-sm sm:text-base font-extrabold shadow-xl
+                       hover:bg-green-500 active:bg-green-600 transition"
+          >
+            <span className="flex items-center gap-2">
+              <svg viewBox="0 0 32 32" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                <path d="M19.11 17.53c-.28-.14-1.66-.82-1.92-.91-.26-.1-.45-.14-.64.14-.19.28-.73.91-.9 1.1-.16.19-.33.21-.61.07-.28-.14-1.2-.44-2.28-1.41-.84-.75-1.41-1.68-1.57-1.96-.16-.28-.02-.43.12-.57.12-.12.28-.33.42-.49.14-.16.19-.28.28-.47.09-.19.05-.35-.02-.49-.07-.14-.64-1.54-.88-2.11-.23-.55-.46-.47-.64-.48h-.55c-.19 0-.49.07-.75.35-.26.28-.99.97-.99 2.37s1.02 2.75 1.16 2.94c.14.19 2.01 3.06 4.87 4.29.68.29 1.21.46 1.62.59.68.22 1.3.19 1.78.12.54-.08 1.66-.68 1.89-1.34.23-.66.23-1.22.16-1.34-.07-.12-.26-.19-.54-.33z" />
+                <path d="M16 3C9.37 3 4 8.37 4 15c0 2.12.55 4.17 1.59 5.98L4 29l8.22-1.55A11.9 11.9 0 0 0 16 27c6.63 0 12-5.37 12-12S22.63 3 16 3zm0 21.72c-1.78 0-3.52-.48-5.05-1.39l-.36-.21-4.88.92.94-4.75-.23-.39A9.7 9.7 0 0 1 6.3 15c0-5.35 4.35-9.7 9.7-9.7s9.7 4.35 9.7 9.7-4.35 9.72-9.7 9.72z" />
+              </svg>
+              <span className="hidden sm:inline">Chat</span>
+              <span className="sm:hidden">Chat</span>
+            </span>
+          </a>
+        ) : null}
+
+        {/* Cart */}
+        <button
+          onClick={() => setCartOpen(true)}
+          className="rounded-2xl bg-slate-900 text-white px-5 py-3 text-base font-extrabold shadow-xl
+                     hover:bg-slate-800 active:bg-slate-900 transition"
+        >
+          Cart {cartCount ? `(${cartCount})` : ""}
+        </button>
+      </div>
 
       {/* Item customizer modal */}
       <ItemCustomizerModal

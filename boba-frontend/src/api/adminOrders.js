@@ -3,14 +3,13 @@ import { adminApi } from "./adminApi";
 // GET /api/admin/orders?status=&from=&to=&page=&limit=
 export async function fetchAdminOrders({ status, page = 1, limit = 20, from, to }) {
   const params = { page, limit };
-  if (status) params.status = status;
-  if (from) params.from = from; // YYYY-MM-DD
-  if (to) params.to = to;       // YYYY-MM-DD
+  if (status && status !== "ALL") params.status = status;
+  if (from) params.from = from;
+  if (to) params.to = to;
 
   const res = await adminApi.get("/orders", { params });
-  return res.data; // { page, limit, total, orders: [...] }
+  return res.data;
 }
-
 // GET /api/admin/orders/:id
 export async function fetchAdminOrderById(id) {
   const res = await adminApi.get(`/orders/${id}`);

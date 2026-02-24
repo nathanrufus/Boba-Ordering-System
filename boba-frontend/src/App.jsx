@@ -22,8 +22,7 @@ export default function App() {
       {/* Public */}
       <Route path="/" element={<MenuPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
-      <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
-
+      <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmationPage />} />
       {/* Admin */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
 
