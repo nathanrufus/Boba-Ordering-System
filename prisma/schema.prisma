@@ -26,6 +26,7 @@ enum FulfillmentType {
 
 enum OrderStatus {
   NEW
+  PENDING_VERIFICATION
   PREPARING
   DONE
   CANCELLED
@@ -34,6 +35,11 @@ enum OrderStatus {
 enum AdminRole {
   OWNER
   STAFF
+}
+enum PaymentMethod {
+  E_BIRR
+  CBE
+  TELEBIRR
 }
 
 // =======================
@@ -136,6 +142,12 @@ model Order {
   whatsappDeeplink    String?        @db.Text
 
   items              OrderItem[]
+  paymentMethod        PaymentMethod?
+  paymentAmount        Decimal?        @db.Decimal(10, 2)  // store snapshot of subtotal at payment time
+  transactionId        String?         @db.VarChar(128)    // optional
+  cbeReference         String?         @db.VarChar(128)    // for CBE reference
+  paymentProofImageUrl String?         @db.VarChar(2048)   // only if you implement screenshot upload
+  paidAt              DateTime?
 }
 
 model OrderItem {

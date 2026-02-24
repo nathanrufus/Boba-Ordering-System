@@ -1,7 +1,6 @@
 const { z } = require("zod");
 
-const allowedStatuses = ["NEW", "PREPARING", "DONE", "CANCELLED"];
-
+const allowedStatuses = ["NEW", "PENDING_VERIFICATION", "PREPARING", "DONE", "CANCELLED"];
 const listOrdersQuerySchema = z.object({
   query: z.object({
     status: z.enum(allowedStatuses).optional(),

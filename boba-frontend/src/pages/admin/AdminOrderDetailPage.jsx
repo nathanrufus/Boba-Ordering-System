@@ -2,7 +2,22 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAdminOrderById, patchAdminOrderStatus } from "../../api/adminOrders";
 
-const STATUS_ACTIONS = ["PREPARING", "DONE", "CANCELLED"];
+const STATUS_ACTIONS = ["PENDING_VERIFICATION", "PREPARING", "DONE", "CANCELLED"];
+
+function paymentLabel(method) {
+  if (method === "E_BIRR") return "E-Birr";
+  if (method === "CBE") return "CBE Bank Transfer";
+  if (method === "TELEBIRR") return "Telebirr";
+  return "-";
+}
+
+function statusBadgeClass(status) {
+  if (status === "PENDING_VERIFICATION") return "bg-indigo-50 border-indigo-200 text-indigo-800";
+  if (status === "NEW") return "bg-emerald-50 border-emerald-200 text-emerald-800";
+  if (status === "PREPARING") return "bg-amber-50 border-amber-200 text-amber-800";
+  if (status === "DONE") return "bg-slate-100 border-slate-200 text-slate-800";
+  return "bg-rose-50 border-rose-200 text-rose-800";
+}
 
 export default function AdminOrderDetailPage() {
   const navigate = useNavigate();
@@ -17,7 +32,6 @@ export default function AdminOrderDetailPage() {
   const mutation = useMutation({
     mutationFn: patchAdminOrderStatus,
     onSuccess: async () => {
-      // refresh detail + list
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["adminOrder", id] }),
         queryClient.invalidateQueries({ queryKey: ["adminOrders"] }),
@@ -65,6 +79,13 @@ export default function AdminOrderDetailPage() {
 
   const isDelivery = String(order.fulfillmentType || "").toUpperCase() === "DELIVERY";
 
+  const pm = paymentLabel(order.paymentMethod);
+  const paidAtText = order.paidAt ? new Date(order.paidAt).toLocaleString() : "-";
+  const paymentAmount = order.paymentAmount ?? "-";
+  const transactionId = order.transactionId ?? "";
+  const cbeReference = order.cbeReference ?? "";
+  const proofUrl = order.paymentProofImageUrl ?? "";
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -89,6 +110,7 @@ export default function AdminOrderDetailPage() {
       <main className="w-full px-4 sm:px-6 lg:px-10 py-8 grid gap-6 lg:grid-cols-12">
         {/* Left: details */}
         <section className="lg:col-span-7 space-y-6">
+          {/* Customer */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-extrabold">Customer</h2>
             <p className="mt-2 text-base font-bold">{order.customerName}</p>
@@ -112,6 +134,73 @@ export default function AdminOrderDetailPage() {
             ) : null}
           </div>
 
+          {/* ✅ Payment Verification */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-extrabold">Payment Verification</h2>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-600">Payment Method</p>
+                <p className="text-base font-extrabold">{pm}</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-600">Paid At</p>
+                <p className="text-base font-extrabold">{paidAtText}</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-600">Payment Amount</p>
+                <p className="text-base font-extrabold">ETB {paymentAmount}</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-600">Order Total</p>
+                <p className="text-base font-extrabold">ETB {order.subtotal}</p>
+              </div>
+            </div>
+
+            {(transactionId || cbeReference || proofUrl) ? (
+              <div className="mt-4 rounded-xl border border-slate-200 p-4">
+                <p className="text-sm font-bold">Proof / References</p>
+
+                {transactionId ? (
+                  <p className="text-sm text-slate-700 mt-2">
+                    <span className="font-semibold">Transaction ID:</span> {transactionId}
+                  </p>
+                ) : null}
+
+                {cbeReference ? (
+                  <p className="text-sm text-slate-700 mt-2">
+                    <span className="font-semibold">CBE Reference:</span> {cbeReference}
+                  </p>
+                ) : null}
+
+                {proofUrl ? (
+                  <p className="text-sm text-slate-700 mt-2">
+                    <span className="font-semibold">Proof Image:</span>{" "}
+                    <a
+                      href={proofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-semibold"
+                    >
+                      Open
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-bold text-amber-900">No proof provided</p>
+                <p className="text-sm text-amber-800 mt-1">
+                  For CBE, reference is required (until screenshot upload is implemented).
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Items */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-extrabold">Items (snapshot)</h2>
@@ -124,7 +213,8 @@ export default function AdminOrderDetailPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-base font-extrabold">
-                        {it.itemNameSnapshot} <span className="text-slate-500">x{it.quantity}</span>
+                        {it.itemNameSnapshot}{" "}
+                        <span className="text-slate-500">x{it.quantity}</span>
                       </p>
                       <p className="text-sm text-slate-600 mt-1">
                         Unit: ETB {it.unitPriceSnapshot} • Line: ETB {it.lineTotal}
@@ -159,7 +249,12 @@ export default function AdminOrderDetailPage() {
             <h2 className="text-xl font-extrabold">Status</h2>
 
             <div className="mt-3">
-              <span className="inline-flex rounded-full bg-slate-100 text-slate-900 px-3 py-1 text-sm font-extrabold border border-slate-200">
+              <span
+                className={[
+                  "inline-flex rounded-full px-3 py-1 text-sm font-extrabold border",
+                  statusBadgeClass(order.status),
+                ].join(" ")}
+              >
                 {order.status}
               </span>
             </div>
@@ -186,12 +281,23 @@ export default function AdminOrderDetailPage() {
                     "w-full rounded-2xl py-3 text-base font-extrabold transition disabled:opacity-50 disabled:cursor-not-allowed",
                     s === "CANCELLED"
                       ? "bg-rose-600 text-white hover:bg-rose-700"
+                      : s === "PENDING_VERIFICATION"
+                      ? "bg-indigo-600 text-white hover:bg-indigo-700"
                       : "bg-slate-900 text-white hover:bg-slate-800",
                   ].join(" ")}
                 >
                   {mutation.isPending ? "Updating…" : `Mark ${s}`}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-bold">Suggested workflow</p>
+              <ol className="mt-2 list-decimal pl-5 text-sm text-slate-700 space-y-1">
+                <li>Verify payment (reference / transaction ID / proof)</li>
+                <li>Mark <span className="font-semibold">PREPARING</span></li>
+                <li>Mark <span className="font-semibold">DONE</span> when ready</li>
+              </ol>
             </div>
           </div>
         </aside>

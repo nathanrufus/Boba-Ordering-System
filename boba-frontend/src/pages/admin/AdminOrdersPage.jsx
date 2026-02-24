@@ -3,23 +3,43 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAdminOrders } from "../../api/adminOrders";
 
-const STATUSES = ["ALL", "NEW", "PREPARING", "DONE", "CANCELLED"];
+const STATUSES = ["ALL", "PENDING_VERIFICATION", "NEW", "PREPARING", "DONE", "CANCELLED"];
+const STATUS_TO_API = {
+  ALL: undefined,
+  NEW: "NEW",
+  PREPARING: "PREPARING",
+  DONE: "DONE",
+  CANCELLED: "CANCELLED",
+  PENDING_VERIFICATION: "PENDING_VERIFICATION"
+  // safety in case label becomes spaced
+};
+
+function paymentLabel(method) {
+  if (method === "E_BIRR") return "E-Birr";
+  if (method === "CBE") return "CBE";
+  if (method === "TELEBIRR") return "Telebirr";
+  return "-";
+}
 
 export default function AdminOrdersPage() {
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState("NEW"); // default show NEW
+  // ✅ Default show PENDING_VERIFICATION (most important for admin)
+  const [status, setStatus] = useState("PENDING_VERIFICATION");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
-  const queryKey = useMemo(() => ["adminOrders", { status, page, limit }], [status, page, limit]);
+  const queryKey = useMemo(
+    () => ["adminOrders", { status, page, limit }],
+    [status, page, limit]
+  );
 
   const { data, isLoading, isError, error, isFetching } = useQuery({
     queryKey,
     queryFn: () =>
       fetchAdminOrders({
-        status: status === "ALL" ? undefined : status,
-        page,
+      status: STATUS_TO_API[status] ?? status,    
+          page,
         limit,
       }),
     keepPreviousData: true,
@@ -41,9 +61,7 @@ export default function AdminOrdersPage() {
         <div className="w-full px-4 sm:px-6 lg:px-10 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">Admin Orders</h1>
-            <p className="text-base text-slate-600">
-              Manage orders and update statuses.
-            </p>
+            <p className="text-base text-slate-600">Manage orders and update statuses.</p>
           </div>
           <button
             onClick={() => navigate("/")}
@@ -116,9 +134,7 @@ export default function AdminOrdersPage() {
         {/* List */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-            <p className="text-base font-extrabold">
-              Orders ({total})
-            </p>
+            <p className="text-base font-extrabold">Orders ({total})</p>
             <p className="text-sm font-semibold text-slate-600">
               Page {page} of {totalPages}
             </p>
@@ -128,55 +144,77 @@ export default function AdminOrdersPage() {
             <div className="p-6 text-slate-600 font-semibold">Loading…</div>
           ) : orders.length ? (
             <div className="divide-y divide-slate-200">
-              {orders.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => navigate(`/admin/orders/${o.id}`)}
-                  className="w-full text-left px-5 py-4 hover:bg-slate-50 transition"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-base font-extrabold text-slate-900">
-                        {o.orderNumber}
-                      </p>
-                      <p className="text-sm text-slate-600 font-semibold mt-1">
-                        {o.customerName} • {o.customerPhone}
-                      </p>
-                      <p className="text-sm text-slate-600 mt-1">
-                        {o.fulfillmentType}
-                        <span className="mx-2">•</span>
-                        {new Date(o.createdAt).toLocaleString()}
-                      </p>
-                    </div>
+              {orders.map((o) => {
+                const paidAtLabel = o.paidAt ? new Date(o.paidAt).toLocaleString() : null;
+                const pmLabel = paymentLabel(o.paymentMethod);
 
-                    <div className="shrink-0 flex items-center gap-3">
-                      <span className="text-sm font-extrabold text-slate-900">
-                        ETB {o.subtotal}
-                      </span>
-                      <span
-                        className={[
-                          "text-xs font-extrabold px-3 py-1 rounded-full border",
-                          o.status === "NEW"
-                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                            : o.status === "PREPARING"
-                            ? "bg-amber-50 border-amber-200 text-amber-800"
-                            : o.status === "DONE"
-                            ? "bg-slate-100 border-slate-200 text-slate-800"
-                            : "bg-rose-50 border-rose-200 text-rose-800",
-                        ].join(" ")}
-                      >
-                        {o.status}
-                      </span>
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => navigate(`/admin/orders/${o.id}`)}
+                    className="w-full text-left px-5 py-4 hover:bg-slate-50 transition"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-base font-extrabold text-slate-900">{o.orderNumber}</p>
+                        <p className="text-sm text-slate-600 font-semibold mt-1">
+                          {o.customerName} • {o.customerPhone}
+                        </p>
+
+                        <p className="text-sm text-slate-600 mt-1">
+                          {o.fulfillmentType}
+                          <span className="mx-2">•</span>
+                          {new Date(o.createdAt).toLocaleString()}
+                        </p>
+
+                        {/* ✅ Payment info line */}
+                        <p className="text-sm text-slate-600 mt-1">
+                          Payment: <span className="font-semibold">{pmLabel}</span>
+                          {paidAtLabel ? (
+                            <>
+                              <span className="mx-2">•</span>
+                              Paid at: <span className="font-semibold">{paidAtLabel}</span>
+                            </>
+                          ) : null}
+                          {o.cbeReference ? (
+                            <>
+                              <span className="mx-2">•</span>
+                              Ref: <span className="font-semibold">{o.cbeReference}</span>
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-3">
+                        <span className="text-sm font-extrabold text-slate-900">
+                          ETB {o.subtotal}
+                        </span>
+
+                        <span
+                          className={[
+                            "text-xs font-extrabold px-3 py-1 rounded-full border",
+                            o.status === "PENDING_VERIFICATION"
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-800"
+                              : o.status === "NEW"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                              : o.status === "PREPARING"
+                              ? "bg-amber-50 border-amber-200 text-amber-800"
+                              : o.status === "DONE"
+                              ? "bg-slate-100 border-slate-200 text-slate-800"
+                              : "bg-rose-50 border-rose-200 text-rose-800",
+                          ].join(" ")}
+                        >
+                          {o.status}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           ) : (
-            <div className="p-6 text-slate-600 font-semibold">
-              No orders found for this filter.
-            </div>
+            <div className="p-6 text-slate-600 font-semibold">No orders found for this filter.</div>
           )}
 
           {/* Pagination */}

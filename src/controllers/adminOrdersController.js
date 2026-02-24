@@ -8,10 +8,22 @@ function toISODateEnd(dateStr) {
   return new Date(`${dateStr}T23:59:59.999Z`);
 }
 
+// Normalize status from query: handles arrays, whitespace, casing
+function normalizeStatus(raw) {
+  if (raw == null) return null;
+
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== "string") return null;
+
+  // decode just in case, then normalize
+  const decoded = decodeURIComponent(value);
+  return decoded.trim().toUpperCase().replace(/\s+/g, "_");
+}
+
 // GET /api/admin/orders
 async function listOrders(req, res, next) {
   try {
-    const { status, from, to } = req.query;
+    const { from, to } = req.query;
 
     const pageNum = Number(req.query.page ?? 1);
     const limitNum = Number(req.query.limit ?? 20);
@@ -21,8 +33,24 @@ async function listOrders(req, res, next) {
 
     const where = {};
 
-    if (status) where.status = status;
+const rawStatus = req.query.status;
+const status = normalizeStatus(rawStatus);
 
+const allowed = new Set(["NEW", "PENDING_VERIFICATION", "PREPARING", "DONE", "CANCELLED"]);
+
+if (status) {
+  if (!allowed.has(status)) {
+    return res.status(400).json({
+      message: "Invalid request data",
+      receivedStatus: rawStatus,
+      normalizedStatus: status,
+      typeOfReceived: Array.isArray(rawStatus) ? "array" : typeof rawStatus,
+    });
+  }
+  where.status = status;
+}
+
+    // date filters
     if (from || to) {
       where.createdAt = {};
       if (from) where.createdAt.gte = toISODateStart(from);
@@ -47,6 +75,12 @@ async function listOrders(req, res, next) {
           fulfillmentType: true,
           status: true,
           subtotal: true,
+
+          // ✅ Payment fields for verification list
+          paymentMethod: true,
+          paidAt: true,
+          cbeReference: true,
+          transactionId: true,
         },
       }),
     ]);
@@ -64,9 +98,15 @@ async function listOrders(req, res, next) {
         fulfillmentType: o.fulfillmentType,
         status: o.status,
         subtotal: o.subtotal.toFixed(2),
+
+        paymentMethod: o.paymentMethod ?? null,
+        paidAt: o.paidAt ? o.paidAt.toISOString() : null,
+        cbeReference: o.cbeReference ?? null,
+        transactionId: o.transactionId ?? null,
       })),
     });
   } catch (err) {
+    console.error("ADMIN listOrders ERROR:", err);
     next(err);
   }
 }
@@ -86,9 +126,7 @@ async function getOrderById(req, res, next) {
         items: {
           orderBy: { id: "asc" },
           include: {
-            options: {
-              orderBy: { id: "asc" },
-            },
+            options: { orderBy: { id: "asc" } },
           },
         },
       },
@@ -110,6 +148,19 @@ async function getOrderById(req, res, next) {
       subtotal: order.subtotal.toFixed(2),
       customerNote: order.customerNote,
       whatsappMessageText: order.whatsappMessageText,
+
+      // ✅ Payment fields for verification
+      paymentMethod: order.paymentMethod ?? null,
+      paymentAmount: order.paymentAmount?.toFixed
+        ? order.paymentAmount.toFixed(2)
+        : order.paymentAmount
+          ? String(order.paymentAmount)
+          : null,
+      paidAt: order.paidAt ? order.paidAt.toISOString() : null,
+      transactionId: order.transactionId ?? null,
+      cbeReference: order.cbeReference ?? null,
+      paymentProofImageUrl: order.paymentProofImageUrl ?? null,
+
       items: order.items.map((it) => ({
         id: it.id,
         menuItemId: it.menuItemId,

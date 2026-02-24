@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE `Order` ADD COLUMN `cbeReference` VARCHAR(128) NULL,
+    ADD COLUMN `paidAt` DATETIME(3) NULL,
+    ADD COLUMN `paymentAmount` DECIMAL(10, 2) NULL,
+    ADD COLUMN `paymentMethod` ENUM('E_BIRR', 'CBE', 'TELEBIRR') NULL,
+    ADD COLUMN `paymentProofImageUrl` VARCHAR(2048) NULL,
+    ADD COLUMN `transactionId` VARCHAR(128) NULL,
+    MODIFY `status` ENUM('NEW', 'PENDING_VERIFICATION', 'PREPARING', 'DONE', 'CANCELLED') NOT NULL DEFAULT 'NEW';

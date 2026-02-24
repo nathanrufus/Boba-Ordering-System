@@ -183,10 +183,10 @@ export default function AdminItemsPage() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {paged.map((it) => (
-            <div key={it.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-              <div className="h-40 bg-slate-100 border-b border-slate-200">
+            <div key={it.id} className="rounded-2xl border border-slate-200 bg-slate-100 overflow-hidden shadow-sm">
+              <div className="h-40 bg-white border-b border-slate-200 aspect-[16/7] sm:aspect-[16/8] w-full max-h-44 sm:max-h-45">
                 {it.imageUrl ? (
-                  <img src={it.imageUrl} alt={it.name} className="w-full h-full object-cover" />
+                  <img src={it.imageUrl} alt={it.name} className="h-full w-full object-contain object-top p-2" />
                 ) : (
                   <div className="w-full h-full grid place-items-center text-slate-400">No image</div>
                 )}
