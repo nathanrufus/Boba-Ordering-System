@@ -28,10 +28,17 @@ function IconButton({ href, label, children }) {
       rel="noreferrer"
       aria-label={label}
       title={label}
-      className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white
-                 text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition"
+      className="
+        inline-flex shrink-0 items-center justify-center
+        h-7 w-7 sm:h-8 sm:w-8
+        rounded-xl border border-slate-200 bg-white
+        text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition
+      "
     >
-      {children}
+      {/* make the svg slightly smaller on mobile */}
+      <span className="[&>svg]:h-3.5 [&>svg]:w-3.5 sm:[&>svg]:h-4 sm:[&>svg]:w-4">
+        {children}
+      </span>
     </a>
   );
 }
@@ -42,13 +49,15 @@ function PhonePill({ phone }) {
   return (
     <a
       href={`tel:${clean}`}
-      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5
-                 text-xs sm:text-sm font-extrabold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition"
+      className="
+        inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white
+        px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-sm
+        font-extrabold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition
+      "
       aria-label={`Call ${phone}`}
       title={`Call ${phone}`}
     >
-      {/* phone icon */}
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="currentColor" aria-hidden="true">
         <path d="M6.62 10.79a15.09 15.09 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z" />
       </svg>
       <span className="whitespace-nowrap">{phone}</span>
@@ -241,39 +250,39 @@ export default function MenuPage() {
 
             {/* Title + small contact/social row */}
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight leading-tight">
-                {import.meta.env.VITE_STORE_NAME || "BOBA"} 
+              <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight leading-tight truncate">
+                {import.meta.env.VITE_STORE_NAME || "BOBA"}
               </h1>
 
-             <div className="mt-0.5">
-                {/* <p className="text-sm sm:text-base text-slate-600">
-                  Bubble tea • Fast, ordering system
-                </p> */}
-
-                <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <div className="mt-2 -mx-1 px-1">
+                {/* Mobile: single-line horizontal scroll. Desktop: wraps nicely */}
+                <div className="mt-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 sm:flex-wrap sm:overflow-visible sm:whitespace-normal">
                   <a
                     href={`tel:${String(storePhone).replace(/\s+/g, "")}`}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5
-                              text-xs sm:text-sm font-extrabold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition"
+                    className="
+                      inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white
+                      px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-sm
+                      font-extrabold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition
+                    "
                     aria-label={`Call ${storePhone}`}
                     title={`Call ${storePhone}`}
                   >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="currentColor" aria-hidden="true">
                       <path d="M6.62 10.79a15.09 15.09 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/>
                     </svg>
-                    <span className="whitespace-nowrap">{storePhone || "+251992311111"}</span>
+                    <span>{storePhone || "+251992311111"}</span>
                   </a>
 
                   {/* Facebook */}
-                  <IconButton href={facebookUrl} label="Facebook">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <IconButton href={facebookUrl} label="Facebook" className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="currentColor" aria-hidden="true">
                       <path d="M22 12a10 10 0 10-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.25c-1.23 0-1.61.76-1.61 1.54V12h2.74l-.44 2.89h-2.3v6.99A10 10 0 0022 12z"/>
                     </svg>
                   </IconButton>
 
                   {/* Instagram */}
-                  <IconButton href={instagramUrl} label="Instagram">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <IconButton href={instagramUrl} label="Instagram" className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="currentColor" aria-hidden="true">
                       <path d="M7 2h10a5 5 0 015 5v10a5 5 0 01-5 5H7a5 5 0 01-5-5V7a5 5 0 015-5zm10 2H7a3 3 0 00-3 3v10a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3z"/>
                       <path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0 2a3 3 0 110 6 3 3 0 010-6z"/>
                       <path d="M17.5 6.5a1 1 0 110 2 1 1 0 010-2z"/>
@@ -281,8 +290,8 @@ export default function MenuPage() {
                   </IconButton>
 
                   {/* TikTok */}
-                  <IconButton href={tiktokUrl} label="TikTok">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <IconButton href={tiktokUrl} label="TikTok" className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="currentColor" aria-hidden="true">
                       <path d="M15 3c.6 3.2 2.7 5 6 5v3c-2.2 0-4.1-.7-6-2v7.2c0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8c0-3.1 2.5-5.6 5.6-5.8V14c-1.3.2-2.3 1.3-2.3 2.6 0 1.5 1.2 2.7 2.7 2.7S12 18.1 12 16.6V3h3z"/>
                     </svg>
                   </IconButton>
