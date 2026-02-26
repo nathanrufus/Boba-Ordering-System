@@ -1,4 +1,6 @@
-const { prisma } = require("../db/prisma");const { Prisma } = require("@prisma/client");
+// src/services/orderPricingService.js
+const { prisma } = require("../db/prisma");
+const { Prisma } = require("@prisma/client");
 const { buildWhatsAppTextAndLink } = require("./whatsappService");
 
 function toDecimal(n) {
@@ -55,6 +57,23 @@ async function computeOrderFromSelections(payload) {
     const menuItem = itemById.get(reqItem.menuItemId);
     const basePrice = menuItem.basePrice; // Decimal
 
+    // ✅ UPDATED (minimal): Block delivery ONLY for ice-cream items (no broad "soft")
+    if (fulfillmentType === "delivery") {
+      const n = String(menuItem?.name ?? "").toLowerCase();
+
+      // Your actual ice-cream items are named "... Ice Cream"
+      const isIceCream =
+        n.includes("ice cream") || n.includes("soft serve") || n.includes("soft-serve");
+
+      if (isIceCream) {
+        const e = new Error(
+          "Soft-serve melts quickly, so ice cream orders are pickup only."
+        );
+        e.status = 400;
+        throw e;
+      }
+    }
+
     // Allowed groups for this item (via join)
     const allowedGroups = menuItem.itemGroups.map((ig) => ig.optionGroup);
 
@@ -89,7 +108,10 @@ async function computeOrderFromSelections(payload) {
         e.status = 400;
         throw e;
       }
-      perGroupSelectedCount.set(found.groupId, (perGroupSelectedCount.get(found.groupId) || 0) + 1);
+      perGroupSelectedCount.set(
+        found.groupId,
+        (perGroupSelectedCount.get(found.groupId) || 0) + 1
+      );
       selectedOptionDetails.push(found);
     }
 
@@ -98,7 +120,9 @@ async function computeOrderFromSelections(payload) {
       if (g.selectionType === "single") {
         const count = perGroupSelectedCount.get(g.id) || 0;
         if (count > 1) {
-          const e = new Error(`Only one option allowed for group "${g.name}" on item ${reqItem.menuItemId}`);
+          const e = new Error(
+            `Only one option allowed for group "${g.name}" on item ${reqItem.menuItemId}`
+          );
           e.status = 400;
           throw e;
         }
@@ -110,7 +134,9 @@ async function computeOrderFromSelections(payload) {
       if (g.isRequired) {
         const count = perGroupSelectedCount.get(g.id) || 0;
         if (count < 1) {
-          const e = new Error(`Missing required option for group "${g.name}" on item ${reqItem.menuItemId}`);
+          const e = new Error(
+            `Missing required option for group "${g.name}" on item ${reqItem.menuItemId}`
+          );
           e.status = 400;
           throw e;
         }

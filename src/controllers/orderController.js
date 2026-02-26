@@ -1,5 +1,6 @@
 const { prisma } = require("../db/prisma");
 const { computeOrderFromSelections } = require("../services/orderPricingService");
+const { sendAdminNewOrderEmail } = require("../services/emailService");
 
 async function createOrder(req, res, next) {
   try {
@@ -97,6 +98,15 @@ async function createOrder(req, res, next) {
 
       return { order: updatedOrder };
     });
+    // Fire-and-forget (don’t fail the order if email fails)
+sendAdminNewOrderEmail({
+  orderNumber: result.order.orderNumber,
+  paymentMethod,
+  subtotal: computed.subtotalStr,
+  summary: computed.summary,
+  customerName: computed.customerName,
+  customerPhone: computed.customerPhone,
+}).catch((e) => console.error("Admin email failed:", e?.message || e));
 
     // Return API response shape (+ payment fields needed for confirmation page)
     res.status(201).json({

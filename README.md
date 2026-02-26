@@ -33,7 +33,8 @@ A full-stack ordering system for **Boba Bros** with:
 ## Payment Methods (Configured)
 
 ### E-Birr (Merchant Payment)
-- Merchant Number: **40108**
+- Merchant Number: **
+406108**
 - Merchant Name: **Boba Bros**
 - Amount: auto-filled from cart total
 - Optional: Transaction ID

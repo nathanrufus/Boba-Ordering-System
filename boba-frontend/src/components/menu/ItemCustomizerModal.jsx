@@ -110,17 +110,17 @@ export default function ItemCustomizerModal({ open, item, onClose, onAdded }) {
   }
 
   function handleAdd() {
-    if (!validation.ok) return;
+  if (!validation.ok) return;
 
-    addItem({
-      item,
-      quantity,
-      selectedOptionIds,
-    });
+  addItem({
+    item,
+    quantity,
+    selectedOptionIds,
+  });
 
-    onAdded?.();
-    onClose?.();
-  }
+  // ✅ Just close the modal so user continues browsing menu
+  onClose?.();
+}
 
   return (
     <div className="fixed inset-0 z-50">

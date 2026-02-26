@@ -1,9 +1,52 @@
-import { useMemo, useState } from "react";
+// CheckoutPage.jsx ✅ FULL FILE (only change: tighten the matcher + keep same variable name cartHasSoftServe)
+// - NO DB changes
+// - NO refactors
+// - NO renaming variables used in JSX (still cartHasSoftServe)
+// - ONLY change is removing broad "soft" match to avoid conflicts
+
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { createOrder } from "../api/orders";
 import { useCartStore } from "../store/cartStore";
 import { formatETB } from "../lib/money";
+
+// ✅ Ethiopia + International (+) phone support
+// Accepts:
+// - 09XXXXXXXX or 9XXXXXXXX
+// - +2519XXXXXXXX or 2519XXXXXXXX
+// - Any international: +######## (8–15 digits total)
+const normalizePhone = (raw) => {
+  let p = String(raw || "").trim();
+
+  // convert "00" prefix to "+"
+  if (p.startsWith("00")) p = "+" + p.slice(2);
+
+  // keep only digits and leading +
+  p = p.replace(/[^\d+]/g, "");
+
+  // if multiple +, keep only the first
+  if (p.includes("+")) {
+    p = "+" + p.replace(/\+/g, "").replace(/^\+/, "");
+  }
+
+  return p;
+};
+
+const isValidPhoneHybrid = (raw) => {
+  const p = normalizePhone(raw);
+
+  // International E.164: + + 8..15 digits
+  if (/^\+\d{8,15}$/.test(p)) return true;
+
+  // Ethiopia local: 09XXXXXXXX or 9XXXXXXXX
+  if (/^0?9\d{8}$/.test(p)) return true;
+
+  // Ethiopia without +: 2519XXXXXXXX
+  if (/^2519\d{8}$/.test(p)) return true;
+
+  return false;
+};
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -19,17 +62,42 @@ export default function CheckoutPage() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [customerNote, setCustomerNote] = useState("");
 
-  // ✅ NEW: Payment state
-  const [paymentMethod, setPaymentMethod] = useState(""); // "E_BIRR" | "CBE" | "TELEBIRR"
+  // ✅ Payment state
+  const [paymentMethod, setPaymentMethod] = useState(""); // "E_BIRR" | "CBE"
   const [transactionId, setTransactionId] = useState(""); // optional
   const [cbeReference, setCbeReference] = useState(""); // required if CBE (until uploads exist)
 
   const [formError, setFormError] = useState("");
 
+  // ✅ ONLY CHANGE HERE:
+  // Tight matcher: block delivery only for items clearly named Ice Cream / Soft Serve
+  // (Removed broad n.includes("soft") to avoid conflicts with other items)
+  const cartHasSoftServe = useMemo(() => {
+    return cartItems.some((line) => {
+      const n = String(line?.name ?? "").toLowerCase();
+      return (
+        n.includes("ice cream") ||
+        n.includes("soft serve") ||
+        n.includes("soft-serve")
+      );
+    });
+  }, [cartItems]);
+
+  // ✅ If user selected delivery, force pickup
+  useEffect(() => {
+    if (cartHasSoftServe && fulfillmentType === "delivery") {
+      setFulfillmentType("pickup");
+    }
+  }, [cartHasSoftServe, fulfillmentType]);
+
   const canSubmit = useMemo(() => {
     if (!cartItems.length) return false;
     if (!customerName.trim()) return false;
+
+    // ✅ require phone + valid phone
     if (!customerPhone.trim()) return false;
+    if (!isValidPhoneHybrid(customerPhone)) return false;
+
     if (fulfillmentType === "delivery" && !deliveryAddress.trim()) return false;
 
     // ✅ paymentMethod must be chosen
@@ -51,10 +119,10 @@ export default function CheckoutPage() {
 
   const mutation = useMutation({
     mutationFn: createOrder,
-   onSuccess: (createdOrder) => {
-  clearCart();
-  navigate(`/order-confirmation/${encodeURIComponent(createdOrder.orderNumber)}`);
-},
+    onSuccess: (createdOrder) => {
+      clearCart();
+      navigate(`/order-confirmation/${encodeURIComponent(createdOrder.orderNumber)}`);
+    },
     onError: (err) => {
       const msg =
         err?.response?.data?.message ||
@@ -79,7 +147,16 @@ export default function CheckoutPage() {
 
     if (!cartItems.length) return setFormError("Your cart is empty.");
     if (!customerName.trim()) return setFormError("Customer name is required.");
-    if (!customerPhone.trim()) return setFormError("Customer phone is required.");
+
+    const phoneRaw = customerPhone.trim();
+    if (!phoneRaw) return setFormError("Phone number is required.");
+    if (!isValidPhoneHybrid(phoneRaw)) {
+      return setFormError(
+        "Enter a valid phone number (e.g. 09XXXXXXXX, +2519XXXXXXXX, or international +########)."
+      );
+    }
+    const normalizedPhone = normalizePhone(phoneRaw);
+
     if (fulfillmentType === "delivery" && !deliveryAddress.trim()) {
       return setFormError("Delivery address is required for delivery.");
     }
@@ -93,7 +170,7 @@ export default function CheckoutPage() {
     // Build payload EXACTLY as backend expects
     const payload = {
       customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
+      customerPhone: normalizedPhone,
       fulfillmentType,
       deliveryAddress: fulfillmentType === "delivery" ? deliveryAddress.trim() : null,
       customerNote: customerNote.trim() ? customerNote.trim() : null,
@@ -102,7 +179,8 @@ export default function CheckoutPage() {
       // ✅ Payment payload fields
       paymentMethod,
       transactionId: transactionId.trim() ? transactionId.trim() : null,
-      cbeReference: paymentMethod === "CBE" && cbeReference.trim() ? cbeReference.trim() : null,
+      cbeReference:
+        paymentMethod === "CBE" && cbeReference.trim() ? cbeReference.trim() : null,
     };
 
     mutation.mutate(payload);
@@ -159,11 +237,22 @@ export default function CheckoutPage() {
                 </label>
                 <input
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="e.g., 2519XXXXXXX"
+                  onChange={(e) => {
+                    // ✅ live clean (keeps digits + optional +)
+                    const cleaned = String(e.target.value).replace(/[^\d+]/g, "");
+                    setCustomerPhone(cleaned);
+                  }}
+                  onBlur={() => {
+                    // ✅ normalize on blur
+                    setCustomerPhone((p) => normalizePhone(p));
+                  }}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="e.g., 09XXXXXXXX or +2519XXXXXXXX or +2547XXXXXXX"
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base
                              focus:outline-none focus:ring-4 focus:ring-slate-200"
                 />
+                <p className="mt-2 text-xs text-slate-500">Enter correct numder to proceed</p>
               </div>
 
               <div>
@@ -184,12 +273,18 @@ export default function CheckoutPage() {
                     Pickup
                   </button>
 
+                  {/* ✅ UPDATED (minimal): disable Delivery when ice cream/soft-serve is in cart */}
                   <button
                     type="button"
-                    onClick={() => setFulfillmentType("delivery")}
+                    disabled={cartHasSoftServe}
+                    onClick={() => {
+                      if (!cartHasSoftServe) setFulfillmentType("delivery");
+                    }}
                     className={[
                       "rounded-xl border px-4 py-3 text-base font-bold transition",
-                      fulfillmentType === "delivery"
+                      cartHasSoftServe
+                        ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : fulfillmentType === "delivery"
                         ? "border-slate-900 bg-slate-900 text-white"
                         : "border-slate-200 bg-white hover:bg-slate-50",
                     ].join(" ")}
@@ -197,6 +292,13 @@ export default function CheckoutPage() {
                     Delivery
                   </button>
                 </div>
+
+                {/* ✅ NEW (minimal): show explanation */}
+                {cartHasSoftServe ? (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Soft-serve melts quickly, so ice cream orders are pickup only.
+                  </p>
+                ) : null}
               </div>
 
               {fulfillmentType === "delivery" ? (
@@ -207,7 +309,7 @@ export default function CheckoutPage() {
                   <input
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="e.g., Bole, Addis Ababa"
+                    placeholder="e.g., Marmarsa ,Diredawa"
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base
                                focus:outline-none focus:ring-4 focus:ring-slate-200"
                   />
@@ -226,7 +328,7 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              {/* ✅ NEW: Payment Section */}
+              {/* ✅ Payment Section */}
               <div className="pt-4 border-t border-slate-200">
                 <h2 className="text-xl font-extrabold">Payment</h2>
                 <p className="text-sm text-slate-600 mt-1">
@@ -269,10 +371,10 @@ export default function CheckoutPage() {
 
                     <div className="mt-3 space-y-1 text-sm text-slate-700">
                       <p>
-                        <span className="font-bold">Merchant Number:</span> 40108{" "}
+                        <span className="font-bold">Merchant Number:</span> 406108{" "}
                         <button
                           type="button"
-                          onClick={() => copyText("40108")}
+                          onClick={() => copyText("406108")}
                           className="ml-2 rounded-lg bg-white px-3 py-1 text-xs font-bold border border-slate-200 hover:bg-slate-100"
                         >
                           Copy Merchant Number
@@ -290,9 +392,15 @@ export default function CheckoutPage() {
                       <p className="text-sm font-bold">Steps</p>
                       <ol className="mt-2 list-decimal pl-5 text-sm text-slate-700 space-y-1">
                         <li>Open E-Birr app</li>
-                        <li>Choose <span className="font-bold">Merchant Payment</span></li>
-                        <li>Enter merchant number <span className="font-bold">40108</span></li>
-                        <li>Confirm name shows <span className="font-bold">Boba Bros</span></li>
+                        <li>
+                          Choose <span className="font-bold">Merchant Payment</span>
+                        </li>
+                        <li>
+                          Enter merchant number <span className="font-bold">406108</span>
+                        </li>
+                        <li>
+                          Confirm name shows <span className="font-bold">Boba Bros</span>
+                        </li>
                         <li>Enter the exact amount</li>
                         <li>Complete payment and return</li>
                       </ol>
@@ -341,8 +449,12 @@ export default function CheckoutPage() {
                       <ol className="mt-2 list-decimal pl-5 text-sm text-slate-700 space-y-1">
                         <li>Open CBE mobile banking (or visit branch)</li>
                         <li>Choose transfer</li>
-                        <li>Enter account <span className="font-bold">1000741111927</span></li>
-                        <li>Confirm name shows <span className="font-bold">Boba Bros</span></li>
+                        <li>
+                          Enter account <span className="font-bold">1000741111927</span>
+                        </li>
+                        <li>
+                          Confirm name shows <span className="font-bold">Boba Bros</span>
+                        </li>
                         <li>Enter exact amount</li>
                         <li>Complete transfer and return</li>
                       </ol>
@@ -380,7 +492,7 @@ export default function CheckoutPage() {
                 ) : null}
               </div>
 
-              {/* ✅ Final button text */}
+              {/* Final button */}
               <button
                 type="submit"
                 disabled={!canSubmit || mutation.isPending}

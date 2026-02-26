@@ -48,15 +48,15 @@ export default function MenuItemCard({ item, onSelect }) {
         )}
 
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-600">
+          {/* <span className="text-sm font-semibold text-slate-600">
             {item?.optionGroups?.length
               ? `${item.optionGroups.length} option group(s)`
               : "No options"}
-          </span>
+          </span> */}
 
           <span className="text-sm font-bold text-white bg-slate-900 px-3 py-2 rounded-xl
                            group-hover:bg-slate-800 transition">
-            View
+            Order Now
           </span>
         </div>
       </div>
