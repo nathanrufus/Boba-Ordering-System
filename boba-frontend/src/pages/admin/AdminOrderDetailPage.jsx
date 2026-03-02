@@ -193,9 +193,7 @@ export default function AdminOrderDetailPage() {
             ) : (
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm font-bold text-amber-900">No proof provided</p>
-                <p className="text-sm text-amber-800 mt-1">
-                  For CBE, reference is required (until screenshot upload is implemented).
-                </p>
+            
               </div>
             )}
           </div>

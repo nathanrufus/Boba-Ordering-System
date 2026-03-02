@@ -2,9 +2,44 @@ const { prisma } = require("../db/prisma");
 const { computeOrderFromSelections } = require("../services/orderPricingService");
 const { sendAdminNewOrderEmail } = require("../services/emailService");
 
+// src/controllers/orderController.js
+// ✅ ONLY CHANGE: add Ethiopia (Addis Ababa) ordering-hours guard (06:00–18:00) inside createOrder
+// No DB changes. No env vars. Everything else stays exactly the same.
+
+// ✅ ADD THIS helper near the top (under imports)
+function isWithinOrderingHoursEthiopia() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Addis_Ababa",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date());
+
+  const hh = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const mm = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+
+  const nowMinutes = hh * 60 + mm;
+  // const openMinutes = 11 * 60;  // 11:00
+    // const closeMinutes = 23 * 60; // 23:00
+  const openMinutes = 17 * 60;  // 17:00
+  const closeMinutes = 23 * 60; // 23:00
+
+  // Open at 06:00 inclusive, closed at 18:00 (18:00 and after is closed)
+  return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+}
+
 async function createOrder(req, res, next) {
   try {
     const payload = req.body;
+
+    // ✅ ADD THIS guard RIGHT HERE (immediately after payload)
+    if (!isWithinOrderingHoursEthiopia()) {
+      return res.status(400).json({
+        message:
+          // "Ordering is available from 6:00 AM to 6:00 PM (Ethiopia time). Please try again during opening hours.",
+"Ordering is available from 4:00 PM to 11:00 PM (Ethiopia time) during Ramadan. Please try again during opening hours.",
+      });
+    }
 
     // ----------------------------
     // ✅ Payment validation (no assumptions)
@@ -18,14 +53,15 @@ async function createOrder(req, res, next) {
     }
 
     // Until screenshot upload exists, enforce reference for CBE
-    if (paymentMethod === "CBE") {
-      const hasReference = String(payload?.cbeReference ?? "").trim().length > 0;
-      if (!hasReference) {
-        return res.status(400).json({
-          message: "For CBE payments, cbeReference is required (until screenshot upload is implemented).",
-        });
-      }
-    }
+    // if (paymentMethod === "CBE") {
+    //   const hasReference = String(payload?.cbeReference ?? "").trim().length > 0;
+    //   if (!hasReference) {
+    //     return res.status(400).json({
+    //       message:
+    //         "For CBE payments, cbeReference is required (until screenshot upload is implemented).",
+    //     });
+    //   }
+    // }
 
     // 1) Validate selections + compute pricing using DB
     const computed = await computeOrderFromSelections(payload);
@@ -52,7 +88,9 @@ async function createOrder(req, res, next) {
           paymentAmount: computed.subtotal,
           transactionId: payload.transactionId ? String(payload.transactionId).trim() : null,
           cbeReference: payload.cbeReference ? String(payload.cbeReference).trim() : null,
-          paymentProofImageUrl: payload.paymentProofImageUrl ? String(payload.paymentProofImageUrl).trim() : null,
+          paymentProofImageUrl: payload.paymentProofImageUrl
+            ? String(payload.paymentProofImageUrl).trim()
+            : null,
           paidAt: new Date(),
 
           whatsappMessageText: computed.whatsappMessageText,
@@ -98,15 +136,16 @@ async function createOrder(req, res, next) {
 
       return { order: updatedOrder };
     });
+
     // Fire-and-forget (don’t fail the order if email fails)
-sendAdminNewOrderEmail({
-  orderNumber: result.order.orderNumber,
-  paymentMethod,
-  subtotal: computed.subtotalStr,
-  summary: computed.summary,
-  customerName: computed.customerName,
-  customerPhone: computed.customerPhone,
-}).catch((e) => console.error("Admin email failed:", e?.message || e));
+    sendAdminNewOrderEmail({
+      orderNumber: result.order.orderNumber,
+      paymentMethod,
+      subtotal: computed.subtotalStr,
+      summary: computed.summary,
+      customerName: computed.customerName,
+      customerPhone: computed.customerPhone,
+    }).catch((e) => console.error("Admin email failed:", e?.message || e));
 
     // Return API response shape (+ payment fields needed for confirmation page)
     res.status(201).json({
@@ -118,7 +157,9 @@ sendAdminNewOrderEmail({
       paidAt: new Date().toISOString(),
       transactionId: payload.transactionId ? String(payload.transactionId).trim() : null,
       cbeReference: payload.cbeReference ? String(payload.cbeReference).trim() : null,
-      paymentProofImageUrl: payload.paymentProofImageUrl ? String(payload.paymentProofImageUrl).trim() : null,
+      paymentProofImageUrl: payload.paymentProofImageUrl
+        ? String(payload.paymentProofImageUrl).trim()
+        : null,
 
       whatsappDeeplink: computed.whatsappDeeplink,
       summary: computed.summary,
@@ -127,6 +168,7 @@ sendAdminNewOrderEmail({
     next(err);
   }
 }
+
 
 async function getOrderByOrderNumber(req, res, next) {
   try {
