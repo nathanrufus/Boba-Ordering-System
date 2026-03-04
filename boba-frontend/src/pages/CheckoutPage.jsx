@@ -66,8 +66,8 @@ function isWithinOrderingHoursEthiopiaClient() {
 
   const nowMinutes = hh * 60 + mm;
   // const openMinutes = 11 * 60;  // 11:00
-    // const closeMinutes = 23 * 60; // 23:00
-  const openMinutes = 17 * 60;  // 17:00
+  // const closeMinutes = 23 * 60; // 23:00
+  const openMinutes = 17 * 60; // 17:00
   const closeMinutes = 23 * 60; // 23:00
   // Open at 06:00 inclusive, closed at 18:00 (18:00 and after is closed)
   return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
@@ -92,6 +92,12 @@ export default function CheckoutPage() {
   const [transactionId, setTransactionId] = useState(""); // optional
 
   const [formError, setFormError] = useState("");
+
+  // ✅ Flat delivery fee: 150 birr (all deliveries)
+  const DELIVERY_FEE_BIRR = 150;
+  const deliveryFeeCents =
+    fulfillmentType === "delivery" ? DELIVERY_FEE_BIRR * 100 : 0;
+  const totalCents = subtotalCents + deliveryFeeCents;
 
   // ✅ NEW (minimal): tick so ordering window updates automatically
   const [timeTick, setTimeTick] = useState(0);
@@ -139,8 +145,6 @@ export default function CheckoutPage() {
     // ✅ paymentMethod must be chosen
     if (!paymentMethod) return false;
 
-    // ✅ if CBE: require cbeReference (until screenshot upload exists)
-
     return true;
   }, [
     cartItems.length,
@@ -155,7 +159,9 @@ export default function CheckoutPage() {
     mutationFn: createOrder,
     onSuccess: (createdOrder) => {
       clearCart();
-      navigate(`/order-confirmation/${encodeURIComponent(createdOrder.orderNumber)}`);
+      navigate(
+        `/order-confirmation/${encodeURIComponent(createdOrder.orderNumber)}`
+      );
     },
     onError: (err) => {
       const msg =
@@ -201,20 +207,22 @@ export default function CheckoutPage() {
 
     // ✅ Validate payment client-side (matches backend expectations)
     if (!paymentMethod) return setFormError("Please select a payment method.");
-    
+
     // Build payload EXACTLY as backend expects
     const payload = {
       customerName: customerName.trim(),
       customerPhone: normalizedPhone,
       fulfillmentType,
-      deliveryAddress: fulfillmentType === "delivery" ? deliveryAddress.trim() : null,
+      deliveryAddress:
+        fulfillmentType === "delivery" ? deliveryAddress.trim() : null,
+      deliveryFee: fulfillmentType === "delivery" ? 150 : 0,
       customerNote: customerNote.trim() ? customerNote.trim() : null,
       items: toOrderPayloadItems(),
 
       // ✅ Payment payload fields
       paymentMethod,
       transactionId: transactionId.trim() ? transactionId.trim() : null,
-          };
+    };
 
     mutation.mutate(payload);
   }
@@ -225,7 +233,9 @@ export default function CheckoutPage() {
         <div className="w-full px-4 sm:px-6 lg:px-10 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">Checkout</h1>
-            <p className="text-base text-slate-600">Confirm details and place your order</p>
+            <p className="text-base text-slate-600">
+              Confirm details and place your order
+            </p>
           </div>
           <button
             onClick={() => navigate("/")}
@@ -247,8 +257,10 @@ export default function CheckoutPage() {
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="font-bold text-amber-800">Ordering is closed</p>
                 <p className="text-sm text-amber-700 mt-1">
-                  Delivery is available from <span className="font-semibold">5:00 PM</span>{" "}
-                  to <span className="font-semibold">11:00 PM</span> (Ethiopia time) during Ramadan.
+                  Delivery is available from{" "}
+                  <span className="font-semibold">5:00 PM</span> to{" "}
+                  <span className="font-semibold">11:00 PM</span> (Ethiopia time)
+                  during Ramadan.
                 </p>
               </div>
             ) : null}
@@ -296,7 +308,9 @@ export default function CheckoutPage() {
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base
                              focus:outline-none focus:ring-4 focus:ring-slate-200"
                 />
-                <p className="mt-2 text-xs text-slate-500">Enter correct numder to proceed</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Enter correct numder to proceed
+                </p>
               </div>
 
               <div>
@@ -361,7 +375,9 @@ export default function CheckoutPage() {
               ) : null}
 
               <div>
-                <label className="text-sm font-semibold text-slate-700">Note (optional)</label>
+                <label className="text-sm font-semibold text-slate-700">
+                  Note (optional)
+                </label>
                 <textarea
                   value={customerNote}
                   onChange={(e) => setCustomerNote(e.target.value)}
@@ -411,11 +427,14 @@ export default function CheckoutPage() {
                 {/* Guidance blocks */}
                 {paymentMethod === "E_BIRR" ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-base font-extrabold">E-Birr (Merchant Payment)</p>
+                    <p className="text-base font-extrabold">
+                      E-Birr (Merchant Payment)
+                    </p>
 
                     <div className="mt-3 space-y-1 text-sm text-slate-700">
                       <p>
-                        <span className="font-bold">Merchant Number:</span> 406108{" "}
+                        <span className="font-bold">Merchant Number:</span>{" "}
+                        406108{" "}
                         <button
                           type="button"
                           onClick={() => copyText("406108")}
@@ -428,7 +447,8 @@ export default function CheckoutPage() {
                         <span className="font-bold">Merchant Name:</span> Boba Bros
                       </p>
                       <p>
-                        <span className="font-bold">Amount:</span> {formatETB(subtotalCents)}
+                        <span className="font-bold">Amount:</span>{" "}
+                        {formatETB(totalCents)}
                       </p>
                     </div>
 
@@ -440,10 +460,12 @@ export default function CheckoutPage() {
                           Choose <span className="font-bold">Merchant Payment</span>
                         </li>
                         <li>
-                          Enter merchant number <span className="font-bold">406108</span>
+                          Enter merchant number{" "}
+                          <span className="font-bold">406108</span>
                         </li>
                         <li>
-                          Confirm name shows <span className="font-bold">Boba Bros</span>
+                          Confirm name shows{" "}
+                          <span className="font-bold">Boba Bros</span>
                         </li>
                         <li>Enter the exact amount</li>
                         <li>Complete payment and return</li>
@@ -471,7 +493,8 @@ export default function CheckoutPage() {
 
                     <div className="mt-3 space-y-1 text-sm text-slate-700">
                       <p>
-                        <span className="font-bold">Account Number:</span> 1000741111927{" "}
+                        <span className="font-bold">Account Number:</span>{" "}
+                        1000741111927{" "}
                         <button
                           type="button"
                           onClick={() => copyText("1000741111927")}
@@ -484,7 +507,8 @@ export default function CheckoutPage() {
                         <span className="font-bold">Account Name:</span> Boba Bros
                       </p>
                       <p>
-                        <span className="font-bold">Amount:</span> {formatETB(subtotalCents)}
+                        <span className="font-bold">Amount:</span>{" "}
+                        {formatETB(totalCents)}
                       </p>
                     </div>
 
@@ -494,31 +518,17 @@ export default function CheckoutPage() {
                         <li>Open CBE mobile banking (or visit branch)</li>
                         <li>Choose transfer</li>
                         <li>
-                          Enter account <span className="font-bold">1000741111927</span>
+                          Enter account{" "}
+                          <span className="font-bold">1000741111927</span>
                         </li>
                         <li>
-                          Confirm name shows <span className="font-bold">Boba Bros</span>
+                          Confirm name shows{" "}
+                          <span className="font-bold">Boba Bros</span>
                         </li>
                         <li>Enter exact amount</li>
                         <li>Complete transfer and return</li>
                       </ol>
                     </div>
-
-                    {/* <div className="mt-4">
-                      <label className="text-sm font-semibold text-slate-700">
-                        Transaction reference <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        value={cbeReference}
-                        onChange={(e) => setCbeReference(e.target.value)}
-                        placeholder="Required"
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base
-                                   focus:outline-none focus:ring-4 focus:ring-slate-200"
-                      />
-                      <p className="text-xs text-slate-600 mt-2">
-                        Transaction reference is required (until screenshot upload is implemented).
-                      </p>
-                    </div> */}
 
                     <div className="mt-4">
                       <label className="text-sm font-semibold text-slate-700">
@@ -570,21 +580,50 @@ export default function CheckoutPage() {
                       .filter(Boolean)
                       .join(", ") || "No options";
                   return (
-                    <div key={line.key} className="rounded-xl border border-slate-200 p-4">
+                    <div
+                      key={line.key}
+                      className="rounded-xl border border-slate-200 p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-base font-extrabold">{line.name}</p>
-                          <p className="text-sm text-slate-600 mt-1 line-clamp-2">{opts}</p>
+                          <p className="text-sm text-slate-600 mt-1 line-clamp-2">
+                            {opts}
+                          </p>
                         </div>
-                        <span className="text-sm font-bold text-slate-700">x{line.quantity}</span>
+                        <span className="text-sm font-bold text-slate-700">
+                          x{line.quantity}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
 
-                <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-                  <span className="text-base font-bold text-slate-700">Total</span>
-                  <span className="text-xl font-extrabold">{formatETB(subtotalCents)}</span>
+                <div className="pt-3 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-700">Items</span>
+                    <span className="text-sm font-bold">
+                      {formatETB(subtotalCents)}
+                    </span>
+                  </div>
+
+                  {fulfillmentType === "delivery" ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-700">
+                        Delivery fee
+                      </span>
+                      <span className="text-sm font-bold">
+                        {formatETB(deliveryFeeCents)}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-bold text-slate-700">Total</span>
+                    <span className="text-xl font-extrabold">
+                      {formatETB(totalCents)}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

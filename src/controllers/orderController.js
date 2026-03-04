@@ -1,10 +1,8 @@
+// src/controllers/orderController.js
+
 const { prisma } = require("../db/prisma");
 const { computeOrderFromSelections } = require("../services/orderPricingService");
 const { sendAdminNewOrderEmail } = require("../services/emailService");
-
-// src/controllers/orderController.js
-// ✅ ONLY CHANGE: add Ethiopia (Addis Ababa) ordering-hours guard (06:00–18:00) inside createOrder
-// No DB changes. No env vars. Everything else stays exactly the same.
 
 // ✅ ADD THIS helper near the top (under imports)
 function isWithinOrderingHoursEthiopia() {
@@ -20,11 +18,10 @@ function isWithinOrderingHoursEthiopia() {
 
   const nowMinutes = hh * 60 + mm;
   // const openMinutes = 11 * 60;  // 11:00
-    // const closeMinutes = 23 * 60; // 23:00
+  // const closeMinutes = 23 * 60; // 23:00
   const openMinutes = 17 * 60;  // 17:00
   const closeMinutes = 23 * 60; // 23:00
 
-  // Open at 06:00 inclusive, closed at 18:00 (18:00 and after is closed)
   return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
 }
 
@@ -37,7 +34,7 @@ async function createOrder(req, res, next) {
       return res.status(400).json({
         message:
           // "Ordering is available from 6:00 AM to 6:00 PM (Ethiopia time). Please try again during opening hours.",
-"Ordering is available from 4:00 PM to 11:00 PM (Ethiopia time) during Ramadan. Please try again during opening hours.",
+          "Ordering is available from 4:00 PM to 11:00 PM (Ethiopia time) during Ramadan. Please try again during opening hours.",
       });
     }
 
@@ -52,19 +49,12 @@ async function createOrder(req, res, next) {
       });
     }
 
-    // Until screenshot upload exists, enforce reference for CBE
-    // if (paymentMethod === "CBE") {
-    //   const hasReference = String(payload?.cbeReference ?? "").trim().length > 0;
-    //   if (!hasReference) {
-    //     return res.status(400).json({
-    //       message:
-    //         "For CBE payments, cbeReference is required (until screenshot upload is implemented).",
-    //     });
-    //   }
-    // }
-
     // 1) Validate selections + compute pricing using DB
     const computed = await computeOrderFromSelections(payload);
+
+    // ✅ Flat delivery fee: 150 birr for all deliveries (backend enforced)
+    const deliveryFee = computed.fulfillmentType === "delivery" ? 150 : 0;
+    const total = Number(computed.subtotal) + deliveryFee;
 
     // 2) Transaction: create order + items + item options + orderNumber
     const result = await prisma.$transaction(async (tx) => {
@@ -81,11 +71,12 @@ async function createOrder(req, res, next) {
           deliveryAddress: computed.deliveryAddress,
           customerNote: computed.customerNote ?? null,
 
-          subtotal: computed.subtotal,
+          // ✅ Store total including delivery fee
+          subtotal: total,
 
           // ✅ Payment snapshot fields
           paymentMethod: paymentMethod,
-          paymentAmount: computed.subtotal,
+          paymentAmount: total,
           transactionId: payload.transactionId ? String(payload.transactionId).trim() : null,
           cbeReference: payload.cbeReference ? String(payload.cbeReference).trim() : null,
           paymentProofImageUrl: payload.paymentProofImageUrl
@@ -141,7 +132,7 @@ async function createOrder(req, res, next) {
     sendAdminNewOrderEmail({
       orderNumber: result.order.orderNumber,
       paymentMethod,
-      subtotal: computed.subtotalStr,
+      subtotal: total?.toFixed ? total.toFixed(2) : String(total),
       summary: computed.summary,
       customerName: computed.customerName,
       customerPhone: computed.customerPhone,
@@ -151,7 +142,7 @@ async function createOrder(req, res, next) {
     res.status(201).json({
       orderNumber: result.order.orderNumber,
       status: result.order.status,
-      subtotal: computed.subtotalStr,
+      subtotal: total?.toFixed ? total.toFixed(2) : String(total),
 
       paymentMethod: paymentMethod,
       paidAt: new Date().toISOString(),
@@ -168,7 +159,6 @@ async function createOrder(req, res, next) {
     next(err);
   }
 }
-
 
 async function getOrderByOrderNumber(req, res, next) {
   try {
@@ -212,32 +202,32 @@ async function getOrderByOrderNumber(req, res, next) {
     };
 
     res.json({
-        orderNumber: order.orderNumber,
-        status: order.status,
-        subtotal: order.subtotal?.toFixed ? order.subtotal.toFixed(2) : String(order.subtotal),
+      orderNumber: order.orderNumber,
+      status: order.status,
+      subtotal: order.subtotal?.toFixed ? order.subtotal.toFixed(2) : String(order.subtotal),
 
-        // ✅ ADD THESE
-        customerName: order.customerName ?? null,
-        customerPhone: order.customerPhone ?? null,
-        customerNote: order.customerNote ?? null,
-        fulfillmentType: order.fulfillmentType ?? null,
-        deliveryAddress: order.deliveryAddress ?? null,
+      // ✅ ADD THESE
+      customerName: order.customerName ?? null,
+      customerPhone: order.customerPhone ?? null,
+      customerNote: order.customerNote ?? null,
+      fulfillmentType: order.fulfillmentType ?? null,
+      deliveryAddress: order.deliveryAddress ?? null,
 
-        // payment fields...
-        paymentMethod: order.paymentMethod,
-        paymentAmount: order.paymentAmount?.toFixed
-          ? order.paymentAmount.toFixed(2)
-          : order.paymentAmount
-            ? String(order.paymentAmount)
-            : null,
-        paidAt: order.paidAt ? order.paidAt.toISOString() : null,
-        transactionId: order.transactionId ?? null,
-        cbeReference: order.cbeReference ?? null,
-        paymentProofImageUrl: order.paymentProofImageUrl ?? null,
+      // payment fields...
+      paymentMethod: order.paymentMethod,
+      paymentAmount: order.paymentAmount?.toFixed
+        ? order.paymentAmount.toFixed(2)
+        : order.paymentAmount
+          ? String(order.paymentAmount)
+          : null,
+      paidAt: order.paidAt ? order.paidAt.toISOString() : null,
+      transactionId: order.transactionId ?? null,
+      cbeReference: order.cbeReference ?? null,
+      paymentProofImageUrl: order.paymentProofImageUrl ?? null,
 
-        whatsappDeeplink: order.whatsappDeeplink,
-        summary,
-      });
+      whatsappDeeplink: order.whatsappDeeplink,
+      summary,
+    });
   } catch (err) {
     next(err);
   }
