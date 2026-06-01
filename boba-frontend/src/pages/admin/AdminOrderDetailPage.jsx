@@ -1,7 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchAdminOrderById, patchAdminOrderStatus } from "../../api/adminOrders";
-
+import { fetchAdminOrderById, patchAdminOrderStatus, deleteAdminOrder } from "../../api/adminOrders";
 const STATUS_ACTIONS = ["PENDING_VERIFICATION", "PREPARING", "DONE", "CANCELLED"];
 
 function paymentLabel(method) {
@@ -38,7 +37,24 @@ export default function AdminOrderDetailPage() {
       ]);
     },
   });
-
+const deleteMutation = useMutation({
+  mutationFn: deleteAdminOrder,
+  onSuccess: async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["adminOrders"] }),
+      queryClient.invalidateQueries({ queryKey: ["adminOrder", id] }),
+    ]);
+    navigate("/admin/orders", { replace: true });
+  },
+  onError: (err) => {
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "Failed to delete order";
+    alert(msg);
+  },
+});;
   const errMsg =
     error?.response?.data?.message ||
     error?.response?.data?.error ||
@@ -96,14 +112,32 @@ export default function AdminOrderDetailPage() {
               Created: {new Date(order.createdAt).toLocaleString()}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/admin/orders")}
-              className="rounded-xl bg-slate-100 px-4 py-2.5 text-base font-semibold hover:bg-slate-200"
-            >
-              Back
-            </button>
-          </div>
+         <div className="flex items-center gap-3">
+  <button
+    onClick={() => navigate("/admin/orders")}
+    className="rounded-xl bg-slate-100 px-4 py-2.5 text-base font-semibold hover:bg-slate-200"
+  >
+    Back
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      if (!order?.id) return;
+
+      const ok = window.confirm(
+        "Delete this order? This will remove it permanently from sales reports."
+      );
+      if (!ok) return;
+
+      deleteMutation.mutate(order.id);
+    }}
+    disabled={deleteMutation.isPending}
+    className="rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-base font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {deleteMutation.isPending ? "Deleting..." : "Delete"}
+  </button>
+</div>
         </div>
       </header>
 

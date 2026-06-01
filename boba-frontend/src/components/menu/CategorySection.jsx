@@ -23,7 +23,11 @@ export default function CategorySection({ category, onSelectItem }) {
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {items.map((item) => (
-          <MenuItemCard key={item.id} item={item} onSelect={onSelectItem} />
+          <MenuItemCard
+            key={item.id}
+            item={{ ...item, categoryName: category?.name }}
+            onSelect={onSelectItem}
+          />
         ))}
       </div>
     </section>

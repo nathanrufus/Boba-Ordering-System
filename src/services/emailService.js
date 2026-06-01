@@ -14,12 +14,22 @@ function getTransporter() {
   return nodemailer.createTransport({
     host,
     port,
-    secure, // true for 465, false for 587
+    secure,
     auth: { user, pass },
   });
 }
 
-async function sendAdminNewOrderEmail({ orderNumber, customerName, customerPhone, subtotal, paymentMethod }) {
+async function sendAdminNewOrderEmail({
+  orderNumber,
+  paymentMethod,
+  subtotal,
+  customerName,
+  customerPhone,
+  fulfillmentType,
+  deliveryAddress,
+  customerNote,
+  items = [],
+}) {
   const to = process.env.ADMIN_NOTIFY_EMAIL;
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
@@ -28,16 +38,49 @@ async function sendAdminNewOrderEmail({ orderNumber, customerName, customerPhone
   }
 
   const subject = `New Order: ${orderNumber}`;
-  const text =
-`New order received
+
+  const itemsText = items
+    .map((item) => {
+      const optionsText =
+        item.options && item.options.length > 0
+          ? item.options
+              .map((opt) => {
+                const group = opt.group ? `${opt.group}: ` : "";
+                return `${group}${opt.label}`;
+              })
+              .join(", ")
+          : "None";
+
+      const lineTotal =
+        item.lineTotal?.toFixed ? item.lineTotal.toFixed(2) : String(item.lineTotal ?? "-");
+
+      return [
+        `- ${item.name} x${item.quantity}`,
+        `  Options: ${optionsText}`,
+        `  Line Total: ${lineTotal} ETB`,
+      ].join("\n");
+    })
+    .join("\n\n");
+
+  const text = `
+New order received
 
 Order: ${orderNumber}
 Customer: ${customerName || "-"}
 Phone: ${customerPhone || "-"}
+Fulfillment: ${fulfillmentType || "-"}
+Delivery Address: ${deliveryAddress || "N/A"}
 Payment: ${paymentMethod || "-"}
-Total: ${subtotal || "-"}
+Total: ${subtotal || "-"} ETB
 
-Login to admin to review & confirm.`;
+Items:
+${itemsText || "-"}
+
+Customer Note:
+${customerNote || "None"}
+
+Login to admin to review & confirm.
+  `.trim();
 
   const transporter = getTransporter();
   await transporter.sendMail({ from, to, subject, text });

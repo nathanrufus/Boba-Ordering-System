@@ -17,10 +17,10 @@ function isWithinOrderingHoursEthiopia() {
   const mm = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
 
   const nowMinutes = hh * 60 + mm;
-  // const openMinutes = 11 * 60;  // 11:00
+  const openMinutes = 10 * 60;  // 10:00
+  const closeMinutes = 21 * 60; // 21:00
+  // const openMinutes = 17 * 60;  // 17:00
   // const closeMinutes = 23 * 60; // 23:00
-  const openMinutes = 17 * 60;  // 17:00
-  const closeMinutes = 23 * 60; // 23:00
 
   return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
 }
@@ -53,8 +53,10 @@ async function createOrder(req, res, next) {
     const computed = await computeOrderFromSelections(payload);
 
     // ✅ Flat delivery fee: 150 birr for all deliveries (backend enforced)
-    const deliveryFee = computed.fulfillmentType === "delivery" ? 150 : 0;
-    const total = Number(computed.subtotal) + deliveryFee;
+      const deliveryFee = computed.fulfillmentType === "delivery" ? 150 : 0;
+      // ✅ Takeaway box fee: ETB 60 for dessert orders
+      const takeawayBoxFee = Number(payload.takeawayBoxFee ?? 0);
+      const total = Number(computed.subtotal) + deliveryFee + takeawayBoxFee;
 
     // 2) Transaction: create order + items + item options + orderNumber
     const result = await prisma.$transaction(async (tx) => {
@@ -129,13 +131,16 @@ async function createOrder(req, res, next) {
     });
 
     // Fire-and-forget (don’t fail the order if email fails)
-    sendAdminNewOrderEmail({
+  sendAdminNewOrderEmail({
       orderNumber: result.order.orderNumber,
       paymentMethod,
       subtotal: total?.toFixed ? total.toFixed(2) : String(total),
-      summary: computed.summary,
       customerName: computed.customerName,
       customerPhone: computed.customerPhone,
+      fulfillmentType: computed.fulfillmentType,
+      deliveryAddress: computed.deliveryAddress,
+      customerNote: computed.customerNote ?? null,
+      items: computed.items,
     }).catch((e) => console.error("Admin email failed:", e?.message || e));
 
     // Return API response shape (+ payment fields needed for confirmation page)

@@ -13,10 +13,8 @@ import {
 } from "../lib/menuAccessors";
 
 function buildOptionIndexFromItem(item) {
-  // Build a lookup: optionId -> { label, priceDeltaCents }
   const groups = getItemOptionGroups(item);
   const map = new Map();
-
   for (const g of groups) {
     const opts = getGroupOptions(g);
     for (const o of opts) {
@@ -33,28 +31,24 @@ function buildOptionIndexFromItem(item) {
 
 function normalizeSelectedOptionIds(selectedOptionIds) {
   const ids = Array.isArray(selectedOptionIds) ? selectedOptionIds : [];
-  // ensure numbers, unique
   const clean = [...new Set(ids.map((x) => Number(x)).filter((n) => Number.isFinite(n)))];
   return clean;
 }
 
 function makeCartKey(menuItemId, selectedOptionIds) {
-  // Combine same item+same selections into one line item
   const sorted = [...selectedOptionIds].sort((a, b) => a - b);
   return `${menuItemId}::${sorted.join(",")}`;
 }
 
 export const useCartStore = create((set, get) => ({
-  items: [], // cart lines
+  items: [],
 
   addItem: ({ item, quantity, selectedOptionIds }) => {
     const menuItemId = Number(getItemId(item));
     const qty = Math.max(1, Number(quantity || 1));
     const selectedIds = normalizeSelectedOptionIds(selectedOptionIds);
-
     const key = makeCartKey(menuItemId, selectedIds);
 
-    // Snapshot for display (does not affect backend payload)
     const optionIndex = buildOptionIndexFromItem(item);
     const selectedOptions = selectedIds
       .map((id) => optionIndex.get(id))
@@ -71,7 +65,6 @@ export const useCartStore = create((set, get) => ({
           ),
         };
       }
-
       return {
         items: [
           ...state.items,
@@ -79,11 +72,11 @@ export const useCartStore = create((set, get) => ({
             key,
             menuItemId,
             quantity: qty,
-            selectedOptionIds: selectedIds, // ✅ required contract field
-            // UI snapshot fields:
+            selectedOptionIds: selectedIds,
             name: getItemName(item),
             basePriceCents,
-            selectedOptions, // [{id,label,priceDeltaCents}]
+            categoryName: item?.categoryName ?? "", // ✅ for takeaway box fee
+            selectedOptions,
           },
         ],
       };
@@ -112,7 +105,6 @@ export const useCartStore = create((set, get) => ({
 
   clear: () => set({ items: [] }),
 
-  // Derived totals (display)
   getSubtotalCents: () => {
     const items = get().items;
     let subtotal = 0;
@@ -127,7 +119,6 @@ export const useCartStore = create((set, get) => ({
     return subtotal;
   },
 
-  // Payload builder for backend (✅ exactly the contract fields)
   toOrderPayloadItems: () => {
     return get().items.map((line) => ({
       menuItemId: line.menuItemId,

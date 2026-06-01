@@ -21,3 +21,7 @@ export async function patchAdminOrderStatus({ id, status }) {
   const res = await adminApi.patch(`/orders/${id}/status`, { status });
   return res.data; // { id, status }
 }
+export async function deleteAdminOrder(id) {
+  const res = await adminApi.delete(`/orders/${id}`);
+  return res.data;
+}

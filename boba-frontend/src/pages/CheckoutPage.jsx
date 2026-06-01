@@ -1,13 +1,4 @@
 // src/pages/CheckoutPage.jsx
-// ✅ UPDATED for production: Ethiopia ordering hours (06:00–18:00 Addis Ababa time)
-// ✅ Behavior:
-// - Shows a friendly "Ordering is closed" notice (NOT an error)
-// - Disables the "Place Order" button when closed
-// - Prevents submit when closed
-// - Auto-updates every 30 seconds
-// ✅ Keeps your existing soft-serve pickup-only logic (cartHasSoftServe) untouched
-// ✅ No DB changes, no refactors, no other behavior changes
-
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
@@ -15,44 +6,24 @@ import { createOrder } from "../api/orders";
 import { useCartStore } from "../store/cartStore";
 import { formatETB } from "../lib/money";
 
-// ✅ Ethiopia + International (+) phone support
-// Accepts:
-// - 09XXXXXXXX or 9XXXXXXXX
-// - +2519XXXXXXXX or 2519XXXXXXXX
-// - Any international: +######## (8–15 digits total)
 const normalizePhone = (raw) => {
   let p = String(raw || "").trim();
-
-  // convert "00" prefix to "+"
   if (p.startsWith("00")) p = "+" + p.slice(2);
-
-  // keep only digits and leading +
   p = p.replace(/[^\d+]/g, "");
-
-  // if multiple +, keep only the first
   if (p.includes("+")) {
     p = "+" + p.replace(/\+/g, "").replace(/^\+/, "");
   }
-
   return p;
 };
 
 const isValidPhoneHybrid = (raw) => {
   const p = normalizePhone(raw);
-
-  // International E.164: + + 8..15 digits
   if (/^\+\d{8,15}$/.test(p)) return true;
-
-  // Ethiopia local: 09XXXXXXXX or 9XXXXXXXX
   if (/^0?9\d{8}$/.test(p)) return true;
-
-  // Ethiopia without +: 2519XXXXXXXX
   if (/^2519\d{8}$/.test(p)) return true;
-
   return false;
 };
 
-// ✅ Ethiopia ordering hours: 06:00–18:00 (Addis Ababa time)
 function isWithinOrderingHoursEthiopiaClient() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Africa/Addis_Ababa",
@@ -65,11 +36,8 @@ function isWithinOrderingHoursEthiopiaClient() {
   const mm = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
 
   const nowMinutes = hh * 60 + mm;
-  // const openMinutes = 11 * 60;  // 11:00
-  // const closeMinutes = 23 * 60; // 23:00
-  const openMinutes = 17 * 60; // 17:00
-  const closeMinutes = 23 * 60; // 23:00
-  // Open at 06:00 inclusive, closed at 18:00 (18:00 and after is closed)
+  const openMinutes = 10 * 60;
+  const closeMinutes = 21 * 60;
   return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
 }
 
@@ -83,37 +51,37 @@ export default function CheckoutPage() {
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [fulfillmentType, setFulfillmentType] = useState("pickup"); // pickup | delivery
+  const [fulfillmentType, setFulfillmentType] = useState("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [customerNote, setCustomerNote] = useState("");
-
-  // ✅ Payment state
-  const [paymentMethod, setPaymentMethod] = useState(""); // "E_BIRR" | "CBE"
-  const [transactionId, setTransactionId] = useState(""); // optional
-
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [transactionId, setTransactionId] = useState("");
   const [formError, setFormError] = useState("");
 
-  // ✅ Flat delivery fee: 150 birr (all deliveries)
   const DELIVERY_FEE_BIRR = 150;
   const deliveryFeeCents =
     fulfillmentType === "delivery" ? DELIVERY_FEE_BIRR * 100 : 0;
-  const totalCents = subtotalCents + deliveryFeeCents;
 
-  // ✅ NEW (minimal): tick so ordering window updates automatically
+  // ✅ TAKEAWAY BOX: ETB 60 for any order containing a Dessert
+  const cartHasDesserts = cartItems.some(
+    (line) => line.categoryName === "Desserts"
+  );
+  const takeawayBoxFeeCents = cartHasDesserts ? 60 * 100 : 0;
+
+  const totalCents = subtotalCents + deliveryFeeCents + takeawayBoxFeeCents; // ✅ TAKEAWAY BOX
+
   const [timeTick, setTimeTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTimeTick((t) => t + 1), 30_000); // every 30s
+    const id = setInterval(() => setTimeTick((t) => t + 1), 30_000);
     return () => clearInterval(id);
   }, []);
 
   const orderingOpen = useMemo(() => {
-    // depend on timeTick so it recomputes automatically
     return isWithinOrderingHoursEthiopiaClient();
   }, [timeTick]);
 
   const orderingClosed = !orderingOpen;
 
-  // ✅ Soft-serve pickup-only logic (unchanged)
   const cartHasSoftServe = useMemo(() => {
     return cartItems.some((line) => {
       const n = String(line?.name ?? "").toLowerCase();
@@ -125,7 +93,6 @@ export default function CheckoutPage() {
     });
   }, [cartItems]);
 
-  // ✅ If user selected delivery, force pickup (unchanged)
   useEffect(() => {
     if (cartHasSoftServe && fulfillmentType === "delivery") {
       setFulfillmentType("pickup");
@@ -135,16 +102,10 @@ export default function CheckoutPage() {
   const canSubmit = useMemo(() => {
     if (!cartItems.length) return false;
     if (!customerName.trim()) return false;
-
-    // ✅ require phone + valid phone
     if (!customerPhone.trim()) return false;
     if (!isValidPhoneHybrid(customerPhone)) return false;
-
     if (fulfillmentType === "delivery" && !deliveryAddress.trim()) return false;
-
-    // ✅ paymentMethod must be chosen
     if (!paymentMethod) return false;
-
     return true;
   }, [
     cartItems.length,
@@ -177,16 +138,13 @@ export default function CheckoutPage() {
     try {
       navigator.clipboard.writeText(String(text));
     } catch {
-      // ignore (browser restrictions); no assumptions
+      // ignore
     }
   }
 
   function handleSubmit(e) {
     e.preventDefault();
-
-    // ✅ NEW: block submit when closed (production UX)
     if (orderingClosed) return;
-
     setFormError("");
 
     if (!cartItems.length) return setFormError("Your cart is empty.");
@@ -205,10 +163,8 @@ export default function CheckoutPage() {
       return setFormError("Delivery address is required for delivery.");
     }
 
-    // ✅ Validate payment client-side (matches backend expectations)
     if (!paymentMethod) return setFormError("Please select a payment method.");
 
-    // Build payload EXACTLY as backend expects
     const payload = {
       customerName: customerName.trim(),
       customerPhone: normalizedPhone,
@@ -216,10 +172,9 @@ export default function CheckoutPage() {
       deliveryAddress:
         fulfillmentType === "delivery" ? deliveryAddress.trim() : null,
       deliveryFee: fulfillmentType === "delivery" ? 150 : 0,
+      takeawayBoxFee: cartHasDesserts ? 60 : 0, // ✅ TAKEAWAY BOX
       customerNote: customerNote.trim() ? customerNote.trim() : null,
       items: toOrderPayloadItems(),
-
-      // ✅ Payment payload fields
       paymentMethod,
       transactionId: transactionId.trim() ? transactionId.trim() : null,
     };
@@ -247,12 +202,10 @@ export default function CheckoutPage() {
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-10 py-8 grid gap-6 lg:grid-cols-12">
-        {/* Left: form */}
         <section className="lg:col-span-7">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-extrabold">Customer Details</h2>
 
-            {/* ✅ NEW: Friendly production notice (NOT an error) */}
             {orderingClosed ? (
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="font-bold text-amber-800">Ordering is closed</p>
@@ -273,7 +226,6 @@ export default function CheckoutPage() {
             ) : null}
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              {/* Customer fields */}
               <div>
                 <label className="text-sm font-semibold text-slate-700">
                   Customer Name <span className="text-red-600">*</span>
@@ -294,12 +246,10 @@ export default function CheckoutPage() {
                 <input
                   value={customerPhone}
                   onChange={(e) => {
-                    // ✅ live clean (keeps digits + optional +)
                     const cleaned = String(e.target.value).replace(/[^\d+]/g, "");
                     setCustomerPhone(cleaned);
                   }}
                   onBlur={() => {
-                    // ✅ normalize on blur
                     setCustomerPhone((p) => normalizePhone(p));
                   }}
                   inputMode="tel"
@@ -331,7 +281,6 @@ export default function CheckoutPage() {
                     Pickup
                   </button>
 
-                  {/* ✅ Existing: disable Delivery when ice cream/soft-serve is in cart */}
                   <button
                     type="button"
                     disabled={cartHasSoftServe}
@@ -351,7 +300,6 @@ export default function CheckoutPage() {
                   </button>
                 </div>
 
-                {/* ✅ Existing: show explanation */}
                 {cartHasSoftServe ? (
                   <p className="mt-2 text-sm text-amber-700">
                     Soft-serve melts quickly, so ice cream orders are pickup only.
@@ -388,14 +336,12 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              {/* ✅ Payment Section */}
               <div className="pt-4 border-t border-slate-200">
                 <h2 className="text-xl font-extrabold">Payment</h2>
                 <p className="text-sm text-slate-600 mt-1">
                   Select a payment method and follow the instructions below.
                 </p>
 
-                {/* Payment method selector */}
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -424,13 +370,11 @@ export default function CheckoutPage() {
                   </button>
                 </div>
 
-                {/* Guidance blocks */}
                 {paymentMethod === "E_BIRR" ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
                     <p className="text-base font-extrabold">
                       E-Birr (Merchant Payment)
                     </p>
-
                     <div className="mt-3 space-y-1 text-sm text-slate-700">
                       <p>
                         <span className="font-bold">Merchant Number:</span>{" "}
@@ -451,7 +395,6 @@ export default function CheckoutPage() {
                         {formatETB(totalCents)}
                       </p>
                     </div>
-
                     <div className="mt-4">
                       <p className="text-sm font-bold">Steps</p>
                       <ol className="mt-2 list-decimal pl-5 text-sm text-slate-700 space-y-1">
@@ -471,7 +414,6 @@ export default function CheckoutPage() {
                         <li>Complete payment and return</li>
                       </ol>
                     </div>
-
                     <div className="mt-4">
                       <label className="text-sm font-semibold text-slate-700">
                         Transaction ID (optional but useful)
@@ -490,7 +432,6 @@ export default function CheckoutPage() {
                 {paymentMethod === "CBE" ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
                     <p className="text-base font-extrabold">CBE Bank Transfer</p>
-
                     <div className="mt-3 space-y-1 text-sm text-slate-700">
                       <p>
                         <span className="font-bold">Account Number:</span>{" "}
@@ -511,7 +452,6 @@ export default function CheckoutPage() {
                         {formatETB(totalCents)}
                       </p>
                     </div>
-
                     <div className="mt-4">
                       <p className="text-sm font-bold">Steps</p>
                       <ol className="mt-2 list-decimal pl-5 text-sm text-slate-700 space-y-1">
@@ -529,7 +469,6 @@ export default function CheckoutPage() {
                         <li>Complete transfer and return</li>
                       </ol>
                     </div>
-
                     <div className="mt-4">
                       <label className="text-sm font-semibold text-slate-700">
                         Transaction ID (optional but useful)
@@ -546,7 +485,6 @@ export default function CheckoutPage() {
                 ) : null}
               </div>
 
-              {/* Final button */}
               <button
                 type="submit"
                 disabled={orderingClosed || !canSubmit || mutation.isPending}
@@ -559,7 +497,6 @@ export default function CheckoutPage() {
           </div>
         </section>
 
-        {/* Right: order summary */}
         <aside className="lg:col-span-5">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-extrabold">Order Summary</h2>
@@ -614,6 +551,18 @@ export default function CheckoutPage() {
                       </span>
                       <span className="text-sm font-bold">
                         {formatETB(deliveryFeeCents)}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {/* ✅ TAKEAWAY BOX */}
+                  {cartHasDesserts ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-700">
+                        Takeaway box
+                      </span>
+                      <span className="text-sm font-bold">
+                        {formatETB(takeawayBoxFeeCents)}
                       </span>
                     </div>
                   ) : null}

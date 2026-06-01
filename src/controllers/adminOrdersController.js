@@ -211,5 +211,39 @@ async function updateOrderStatus(req, res, next) {
     next(err);
   }
 }
+async function deleteOrder(req, res, next) {
+  try {
+    const id = Number(req.params.id);
 
-module.exports = { listOrders, getOrderById, updateOrderStatus };
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ message: "Invalid order id" });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // delete options under items
+      await tx.orderItemOption.deleteMany({
+        where: { orderItem: { orderId: id } },
+      });
+
+      // delete items
+      await tx.orderItem.deleteMany({
+        where: { orderId: id },
+      });
+
+      // delete the order
+      await tx.order.delete({
+        where: { id },
+      });
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    // Prisma "record not found"
+    if (err?.code === "P2025") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    next(err);
+  }
+}
+
+module.exports = { listOrders, getOrderById, updateOrderStatus, deleteOrder };

@@ -14,6 +14,7 @@ const {
   listOrders,
   getOrderById,
   updateOrderStatus,
+  deleteOrder,
 } = require("../controllers/adminOrdersController");
 
 // All admin orders routes are protected
@@ -27,5 +28,6 @@ router.get("/:id", validate(orderIdParamSchema), getOrderById);
 
 // PATCH /api/admin/orders/:id/status
 router.patch("/:id/status", validate(updateOrderStatusSchema), updateOrderStatus);
+router.delete("/:id", validate(orderIdParamSchema), deleteOrder);
 
 module.exports = router;
